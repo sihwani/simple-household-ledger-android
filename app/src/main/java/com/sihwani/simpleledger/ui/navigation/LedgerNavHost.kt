@@ -55,12 +55,11 @@ fun LedgerNavHost(
         composable(LedgerRoutes.Home) {
             val homeViewModel: HomeViewModel = viewModel(
                 factory = HomeViewModelFactory(
-                    transactionRepository = transactionRepository,
-                    premiumRepository = premiumRepository,
-                    pdfExportManager = pdfExportManager
+                    transactionRepository = transactionRepository
                 )
             )
             val uiState by homeViewModel.uiState.collectAsState()
+            val isPremium by premiumRepository.isPremium.collectAsState()
 
             HomeScreen(
                 uiState = uiState,
@@ -76,13 +75,10 @@ fun LedgerNavHost(
                 onShowHistory = { navController.navigate(LedgerRoutes.History) },
                 onOpenSettings = { navController.navigate(LedgerRoutes.Settings) },
                 onMonthSelected = homeViewModel::moveToMonth,
-                onExportMonthlyPdf = homeViewModel::exportMonthlyPdf,
-                onDismissPdfPremiumDialog = homeViewModel::dismissPdfPremiumDialog,
-                onPdfShareIntentHandled = homeViewModel::clearPdfShareUri,
-                onPdfOpenFailed = homeViewModel::showPdfOpenFailedMessage,
                 onTransactionClick = { transactionId ->
                     navController.navigate(LedgerRoutes.transactionDetail(transactionId))
-                }
+                },
+                isPremium = isPremium
             )
         }
 
@@ -148,7 +144,11 @@ fun LedgerNavHost(
 
         composable(LedgerRoutes.History) {
             val historyViewModel: HistoryViewModel = viewModel(
-                factory = HistoryViewModelFactory(transactionRepository)
+                factory = HistoryViewModelFactory(
+                    transactionRepository = transactionRepository,
+                    premiumRepository = premiumRepository,
+                    pdfExportManager = pdfExportManager
+                )
             )
             val uiState by historyViewModel.uiState.collectAsState()
 
@@ -157,7 +157,14 @@ fun LedgerNavHost(
                 onBack = { navController.popBackStack() },
                 onTransactionClick = { transactionId ->
                     navController.navigate(LedgerRoutes.transactionDetail(transactionId))
-                }
+                },
+                onRequestMonthlyPdf = historyViewModel::requestMonthlyPdf,
+                onRequestYearlyPdf = historyViewModel::requestYearlyPdf,
+                onDismissPdfConfirmation = historyViewModel::dismissPdfConfirmation,
+                onConfirmPdfGeneration = historyViewModel::confirmPdfGeneration,
+                onDismissPdfPremiumDialog = historyViewModel::dismissPdfPremiumDialog,
+                onPdfShareIntentHandled = historyViewModel::clearPdfShareUri,
+                onPdfOpenFailed = historyViewModel::showPdfOpenFailedMessage
             )
         }
 

@@ -10,6 +10,7 @@ import com.sihwani.simpleledger.domain.model.TransactionCategories
 import com.sihwani.simpleledger.domain.model.TransactionType
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.util.DateUtils
+import com.sihwani.simpleledger.util.MoneyInputFormatter
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -93,7 +94,7 @@ class TransactionFormViewModel(
             _uiState.update {
                 it.copy(
                     type = transaction.type,
-                    amountText = transaction.amount.toString(),
+                    amountText = MoneyInputFormatter.formatAmountInput(transaction.amount.toString()),
                     title = transaction.title,
                     category = transaction.category,
                     date = transaction.date,
@@ -111,10 +112,9 @@ class TransactionFormViewModel(
     }
 
     fun onAmountChange(value: String) {
-        val digitsOnly = value.filter { it.isDigit() }
         _uiState.update {
             it.copy(
-                amountText = digitsOnly,
+                amountText = MoneyInputFormatter.formatAmountInput(value),
                 errorMessage = null
             )
         }
@@ -190,7 +190,7 @@ class TransactionFormViewModel(
             return
         }
 
-        val amount = state.amountText.toLongOrNull()
+        val amount = MoneyInputFormatter.parseAmountInput(state.amountText)
         val title = state.title.trim()
         val memo = state.memo.trim().ifEmpty { null }
         val original = originalTransaction

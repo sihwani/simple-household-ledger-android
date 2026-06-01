@@ -1,8 +1,5 @@
 package com.sihwani.simpleledger.ui.home
 
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,7 +29,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -50,7 +45,6 @@ import androidx.compose.ui.unit.sp
 import com.sihwani.simpleledger.domain.model.MonthlySummary
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionType
-import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.ui.ads.TopBannerAd
 import com.sihwani.simpleledger.util.DateUtils
 import com.sihwani.simpleledger.util.MoneyFormatter
@@ -66,34 +60,10 @@ fun HomeScreen(
     onShowHistory: () -> Unit,
     onOpenSettings: () -> Unit,
     onMonthSelected: (String) -> Unit,
-    onExportMonthlyPdf: () -> Unit,
-    onDismissPdfPremiumDialog: () -> Unit,
-    onPdfShareIntentHandled: () -> Unit,
-    onPdfOpenFailed: () -> Unit,
     onTransactionClick: (String) -> Unit,
+    isPremium: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-
-    LaunchedEffect(uiState.pdfShareUriString) {
-        val uriString = uiState.pdfShareUriString ?: return@LaunchedEffect
-        val uri = Uri.parse(uriString)
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "application/pdf"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = Intent.createChooser(shareIntent, "PDF 공유")
-        runCatching {
-            context.startActivity(chooser)
-        }.onFailure { throwable ->
-            if (throwable is ActivityNotFoundException) {
-                onPdfOpenFailed()
-            }
-        }
-        onPdfShareIntentHandled()
-    }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Color(0xFFF6F7F9),
@@ -121,7 +91,7 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             HomeHeader(onOpenSettings = onOpenSettings)
-            TopBannerAd(isPremium = uiState.isPremium)
+            TopBannerAd(isPremium = isPremium)
             MonthSelector(
                 selectedMonthKey = uiState.selectedMonthKey,
                 monthLabel = uiState.monthLabel,
@@ -130,14 +100,6 @@ fun HomeScreen(
                 onMonthSelected = onMonthSelected
             )
             SummaryCard(summary = uiState.summary)
-            MonthlyPdfExportCard(
-                isPremium = uiState.isPremium,
-                trialUsed = uiState.monthlyPdfTrialUsed,
-                trialRemaining = uiState.monthlyPdfTrialRemaining,
-                isExporting = uiState.isExportingMonthlyPdf,
-                message = uiState.pdfExportMessage,
-                onExportMonthlyPdf = onExportMonthlyPdf
-            )
             HistoryButton(onShowHistory = onShowHistory)
             TransactionColumns(
                 expenseTransactions = uiState.expenseTransactions,
@@ -146,12 +108,6 @@ fun HomeScreen(
             )
             Spacer(modifier = Modifier.height(24.dp))
         }
-    }
-
-    if (uiState.showPdfPremiumDialog) {
-        MonthlyPdfPremiumDialog(
-            onDismiss = onDismissPdfPremiumDialog
-        )
     }
 }
 
@@ -466,102 +422,6 @@ private fun SummaryCard(summary: MonthlySummary) {
 }
 
 @Composable
-private fun MonthlyPdfExportCard(
-    isPremium: Boolean,
-    trialUsed: Int,
-    trialRemaining: Int,
-    isExporting: Boolean,
-    message: String?,
-    onExportMonthlyPdf: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = "월 가계부 PDF",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF18181B)
-            )
-            Text(
-                text = if (isPremium) {
-                    "프리미엄: 제한 없이 PDF를 만들 수 있습니다."
-                } else {
-                    "무료 체험 ${trialRemaining}회 남음 (${trialUsed}/${PremiumPolicy.FreeMonthlyPdfTrialLimit}회 사용)"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF71717A)
-            )
-            Button(
-                onClick = onExportMonthlyPdf,
-                enabled = !isExporting,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
-            ) {
-                Text(
-                    text = if (isExporting) "PDF 만드는 중" else "프린트용 월 가계부 PDF 만들기",
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            message?.let {
-                Text(
-                    text = it,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = Color(0xFFF4F4F5),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF18181B)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MonthlyPdfPremiumDialog(
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "프리미엄 기능") },
-        text = {
-            Text(
-                text = "프린트용 월 가계부 PDF는 프리미엄 기능입니다.\n\n" +
-                    "무료 사용자는 ${PremiumPolicy.FreeMonthlyPdfTrialLimit}회까지 체험할 수 있습니다.\n" +
-                    "프리미엄을 구매하면 광고 없이 사용할 수 있고, 월 가계부 PDF를 제한 없이 만들 수 있습니다.\n\n" +
-                    "예상 가격: 1,500원 1회 구매",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF18181B)
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = "확인")
-            }
-        }
-    )
-}
-
-@Composable
 private fun HistoryButton(
     onShowHistory: () -> Unit
 ) {
@@ -785,11 +645,8 @@ private fun HomeScreenPreview() {
                 onShowHistory = {},
                 onOpenSettings = {},
                 onMonthSelected = {},
-                onExportMonthlyPdf = {},
-                onDismissPdfPremiumDialog = {},
-                onPdfShareIntentHandled = {},
-                onPdfOpenFailed = {},
-                onTransactionClick = {}
+                onTransactionClick = {},
+                isPremium = false,
             )
         }
     }

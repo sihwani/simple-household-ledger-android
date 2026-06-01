@@ -25,104 +25,201 @@ class MonthlyLedgerPdfGenerator {
         val document = PdfDocument()
         try {
             val pageState = PageState()
-            var page = startPage(
+            var page = startMonthlyPage(
                 document = document,
                 reportData = reportData,
                 pageNumber = pageState.nextPageNumber(),
                 continuation = false
             )
 
-            val transactions = reportData.transactions.sortedWith(
-                compareBy<Transaction> { it.date }.thenBy { it.createdAt }
-            )
-
+            val transactions = reportData.transactions.sortedWith(transactionSort())
             if (transactions.isEmpty()) {
-                page = ensureRowSpace(document, reportData, page, pageState)
+                page = ensureMonthlyRowSpace(document, reportData, page, pageState)
                 drawEmptyRow(page.canvas, page.y)
                 page.y += ROW_HEIGHT
             } else {
                 transactions.forEach { transaction ->
-                    page = ensureRowSpace(document, reportData, page, pageState)
-                    drawTransactionRow(
-                        canvas = page.canvas,
-                        transaction = transaction,
-                        y = page.y
-                    )
+                    page = ensureMonthlyRowSpace(document, reportData, page, pageState)
+                    drawTransactionRow(page.canvas, transaction, page.y)
                     page.y += ROW_HEIGHT
                 }
             }
 
             finishPage(document, page)
-
-            FileOutputStream(outputFile).use { output ->
-                document.writeTo(output)
-            }
+            FileOutputStream(outputFile).use { output -> document.writeTo(output) }
         } finally {
             document.close()
         }
     }
 
-    private fun startPage(
+    fun generate(
+        reportData: YearlyLedgerReportData,
+        outputFile: File
+    ) {
+        outputFile.parentFile?.mkdirs()
+
+        val document = PdfDocument()
+        try {
+            val pageState = PageState()
+            var page = startYearlyPage(
+                document = document,
+                reportData = reportData,
+                pageNumber = pageState.nextPageNumber(),
+                continuation = false
+            )
+
+            if (reportData.sections.isEmpty()) {
+                page = ensureYearlySpace(document, reportData, page, pageState, ROW_HEIGHT)
+                drawEmptyRow(page.canvas, page.y)
+                page.y += ROW_HEIGHT
+            } else {
+                reportData.sections.forEach { section ->
+                    page = ensureYearlySpace(
+                        document = document,
+                        reportData = reportData,
+                        activePage = page,
+                        pageState = pageState,
+                        neededHeight = MONTH_SECTION_HEADER_HEIGHT + ROW_HEIGHT
+                    )
+                    page.y = drawMonthSectionHeader(page.canvas, section, page.y, continuation = false)
+                    drawTableHeader(page.canvas, page.y)
+                    page.y += ROW_HEIGHT
+
+                    val transactions = section.transactions.sortedWith(transactionSort())
+                    if (transactions.isEmpty()) {
+                        page = ensureYearlyMonthRowSpace(document, reportData, section, page, pageState)
+                        drawEmptyRow(page.canvas, page.y)
+                        page.y += ROW_HEIGHT
+                    } else {
+                        transactions.forEach { transaction ->
+                            page = ensureYearlyMonthRowSpace(document, reportData, section, page, pageState)
+                            drawTransactionRow(page.canvas, transaction, page.y)
+                            page.y += ROW_HEIGHT
+                        }
+                    }
+
+                    page.y += 10
+                }
+            }
+
+            finishPage(document, page)
+            FileOutputStream(outputFile).use { output -> document.writeTo(output) }
+        } finally {
+            document.close()
+        }
+    }
+
+    private fun startMonthlyPage(
         document: PdfDocument,
         reportData: MonthlyLedgerReportData,
         pageNumber: Int,
         continuation: Boolean
     ): ActivePage {
-        val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNumber).create()
-        val page = document.startPage(pageInfo)
-        val canvas = page.canvas
+        val page = document.startPage(pageInfo(pageNumber))
         val monthTitle = "${formatMonthTitle(reportData.monthKey)} 가계부"
         val title = if (continuation) "$monthTitle (계속)" else monthTitle
-
-        var y = TOP_MARGIN
-        canvas.drawText(title, LEFT_MARGIN.toFloat(), y.toFloat(), titlePaint)
-        y += 32
+        var y = drawDocumentTitle(page.canvas, title)
 
         if (!continuation) {
-            canvas.drawText(
-                "총 수입: ${formatWon(reportData.summary.income)}",
-                LEFT_MARGIN.toFloat(),
-                y.toFloat(),
-                summaryPaint
+            y = drawSummary(
+                canvas = page.canvas,
+                y = y,
+                income = reportData.summary.income,
+                expense = reportData.summary.expense,
+                balance = reportData.summary.balance,
+                generatedDateIso = reportData.generatedDateIso
             )
-            y += 20
-            canvas.drawText(
-                "총 지출: ${formatWon(reportData.summary.expense)}",
-                LEFT_MARGIN.toFloat(),
-                y.toFloat(),
-                summaryPaint
-            )
-            y += 20
-            canvas.drawText(
-                "잔액: ${formatWon(reportData.summary.balance)}",
-                LEFT_MARGIN.toFloat(),
-                y.toFloat(),
-                summaryPaint
-            )
-            y += 22
-            canvas.drawText(
-                "생성일 ${reportData.generatedDateIso}",
-                LEFT_MARGIN.toFloat(),
-                y.toFloat(),
-                smallPaint
-            )
-            y += 30
         } else {
             y += 12
         }
 
-        drawTableHeader(canvas, y)
+        drawTableHeader(page.canvas, y)
         y += ROW_HEIGHT
 
-        return ActivePage(
-            page = page,
-            canvas = canvas,
-            pageNumber = pageNumber,
-            y = y
-        )
+        return ActivePage(page = page, canvas = page.canvas, pageNumber = pageNumber, y = y)
     }
 
-    private fun ensureRowSpace(
+    private fun startYearlyPage(
+        document: PdfDocument,
+        reportData: YearlyLedgerReportData,
+        pageNumber: Int,
+        continuation: Boolean
+    ): ActivePage {
+        val page = document.startPage(pageInfo(pageNumber))
+        val title = if (continuation) {
+            "${reportData.year}년 가계부 (계속)"
+        } else {
+            "${reportData.year}년 가계부"
+        }
+        var y = drawDocumentTitle(page.canvas, title)
+
+        if (!continuation) {
+            y = drawSummary(
+                canvas = page.canvas,
+                y = y,
+                income = reportData.incomeTotal,
+                expense = reportData.expenseTotal,
+                balance = reportData.balance,
+                generatedDateIso = reportData.generatedDateIso
+            )
+        } else {
+            y += 12
+        }
+
+        return ActivePage(page = page, canvas = page.canvas, pageNumber = pageNumber, y = y)
+    }
+
+    private fun drawDocumentTitle(
+        canvas: Canvas,
+        title: String
+    ): Int {
+        var y = TOP_MARGIN
+        canvas.drawText(title, LEFT_MARGIN.toFloat(), y.toFloat(), titlePaint)
+        y += 32
+        return y
+    }
+
+    private fun drawSummary(
+        canvas: Canvas,
+        y: Int,
+        income: Long,
+        expense: Long,
+        balance: Long,
+        generatedDateIso: String
+    ): Int {
+        var nextY = y
+        canvas.drawText("총 수입: ${formatWon(income)}", LEFT_MARGIN.toFloat(), nextY.toFloat(), summaryPaint)
+        nextY += 20
+        canvas.drawText("총 지출: ${formatWon(expense)}", LEFT_MARGIN.toFloat(), nextY.toFloat(), summaryPaint)
+        nextY += 20
+        canvas.drawText("잔액: ${formatWon(balance)}", LEFT_MARGIN.toFloat(), nextY.toFloat(), summaryPaint)
+        nextY += 22
+        canvas.drawText("생성일 $generatedDateIso", LEFT_MARGIN.toFloat(), nextY.toFloat(), smallPaint)
+        nextY += 30
+        return nextY
+    }
+
+    private fun drawMonthSectionHeader(
+        canvas: Canvas,
+        section: YearlyLedgerMonthSection,
+        y: Int,
+        continuation: Boolean
+    ): Int {
+        val title = if (continuation) "${section.monthLabel} (계속)" else section.monthLabel
+        var nextY = y
+        canvas.drawText(title, LEFT_MARGIN.toFloat(), nextY.toFloat(), sectionTitlePaint)
+        nextY += 22
+        canvas.drawText(
+            "총 수입 ${formatWon(section.incomeTotal)} · 총 지출 ${formatWon(section.expenseTotal)} · 잔액 ${formatWon(section.balance)}",
+            LEFT_MARGIN.toFloat(),
+            nextY.toFloat(),
+            smallPaint
+        )
+        nextY += 26
+        return nextY
+    }
+
+    private fun ensureMonthlyRowSpace(
         document: PdfDocument,
         reportData: MonthlyLedgerReportData,
         activePage: ActivePage,
@@ -133,12 +230,56 @@ class MonthlyLedgerPdfGenerator {
         }
 
         finishPage(document, activePage)
-        return startPage(
+        return startMonthlyPage(
             document = document,
             reportData = reportData,
             pageNumber = pageState.nextPageNumber(),
             continuation = true
         )
+    }
+
+    private fun ensureYearlySpace(
+        document: PdfDocument,
+        reportData: YearlyLedgerReportData,
+        activePage: ActivePage,
+        pageState: PageState,
+        neededHeight: Int
+    ): ActivePage {
+        if (activePage.y + neededHeight <= PAGE_HEIGHT - BOTTOM_MARGIN) {
+            return activePage
+        }
+
+        finishPage(document, activePage)
+        return startYearlyPage(
+            document = document,
+            reportData = reportData,
+            pageNumber = pageState.nextPageNumber(),
+            continuation = true
+        )
+    }
+
+    private fun ensureYearlyMonthRowSpace(
+        document: PdfDocument,
+        reportData: YearlyLedgerReportData,
+        section: YearlyLedgerMonthSection,
+        activePage: ActivePage,
+        pageState: PageState
+    ): ActivePage {
+        if (activePage.y + ROW_HEIGHT <= PAGE_HEIGHT - BOTTOM_MARGIN) {
+            return activePage
+        }
+
+        finishPage(document, activePage)
+        val nextPage = startYearlyPage(
+            document = document,
+            reportData = reportData,
+            pageNumber = pageState.nextPageNumber(),
+            continuation = true
+        )
+        nextPage.y = drawMonthSectionHeader(nextPage.canvas, section, nextPage.y, continuation = true)
+        drawTableHeader(nextPage.canvas, nextPage.y)
+        nextPage.y += ROW_HEIGHT
+        return nextPage
     }
 
     private fun finishPage(
@@ -261,12 +402,25 @@ class MonthlyLedgerPdfGenerator {
     }
 
     private fun formatMonthDay(dateIso: String): String {
-        val date = LocalDate.parse(dateIso, isoDateFormatter)
-        return "%02d/%02d".format(date.monthValue, date.dayOfMonth)
+        return runCatching {
+            val date = LocalDate.parse(dateIso, isoDateFormatter)
+            "%02d/%02d".format(date.monthValue, date.dayOfMonth)
+        }.getOrElse {
+            dateIso.takeLast(5)
+        }
     }
 
     private fun formatWon(amount: Long): String {
         return "${numberFormatter.format(amount)}원"
+    }
+
+    private fun transactionSort(): Comparator<Transaction> {
+        return compareByDescending<Transaction> { transaction -> transaction.date }
+            .thenByDescending { transaction -> transaction.createdAt }
+    }
+
+    private fun pageInfo(pageNumber: Int): PdfDocument.PageInfo {
+        return PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNumber).create()
     }
 
     private data class ActivePage(
@@ -293,6 +447,7 @@ class MonthlyLedgerPdfGenerator {
         const val TOP_MARGIN = 54
         const val BOTTOM_MARGIN = 54
         const val ROW_HEIGHT = 28
+        const val MONTH_SECTION_HEADER_HEIGHT = 48
 
         const val X_DATE = 42
         const val X_TITLE = 92
@@ -311,6 +466,11 @@ class MonthlyLedgerPdfGenerator {
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(24, 24, 27)
             textSize = 22f
+            typeface = Typeface.create(baseTypeface, Typeface.BOLD)
+        }
+        val sectionTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(24, 24, 27)
+            textSize = 15f
             typeface = Typeface.create(baseTypeface, Typeface.BOLD)
         }
         val summaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

@@ -1,4 +1,4 @@
-package com.sihwani.simpleledger.ui.settings
+﻿package com.sihwani.simpleledger.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -148,7 +148,7 @@ private fun PremiumSection(
         }
 
         SectionLabel(text = "무료 제공")
-        BenefitText(text = "월 가계부 PDF ${PremiumPolicy.FreeMonthlyPdfTrialLimit}회 체험")
+        BenefitText(text = "PDF 내보내기 ${PremiumPolicy.FreePdfTrialLimit}회 체험")
 
         SectionLabel(text = "향후 제공 예정")
         PremiumPolicy.PlannedPremiumFeatures.forEach { feature ->

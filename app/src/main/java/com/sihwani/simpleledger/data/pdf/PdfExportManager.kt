@@ -23,18 +23,41 @@ class PdfExportManager(
     suspend fun exportMonthlyLedger(
         reportData: MonthlyLedgerReportData
     ): ExportedPdf = withContext(ioDispatcher) {
+        exportPdf(
+            fileName = "hannun-ledger-month-${reportData.monthKey}-${timestamp()}.pdf"
+        ) { outputFile ->
+            generator.generate(
+                reportData = reportData,
+                outputFile = outputFile
+            )
+        }
+    }
+
+    suspend fun exportYearlyLedger(
+        reportData: YearlyLedgerReportData
+    ): ExportedPdf = withContext(ioDispatcher) {
+        exportPdf(
+            fileName = "hannun-ledger-year-${reportData.year}-${timestamp()}.pdf"
+        ) { outputFile ->
+            generator.generate(
+                reportData = reportData,
+                outputFile = outputFile
+            )
+        }
+    }
+
+    private fun exportPdf(
+        fileName: String,
+        generate: (File) -> Unit
+    ): ExportedPdf {
         val exportDir = File(context.cacheDir, PDF_EXPORT_DIR_NAME).apply {
             if (!exists()) {
                 mkdirs()
             }
         }
-        val fileName = "hannun-ledger-${reportData.monthKey}-${timestamp()}.pdf"
         val outputFile = File(exportDir, fileName)
 
-        generator.generate(
-            reportData = reportData,
-            outputFile = outputFile
-        )
+        generate(outputFile)
 
         val uri = FileProvider.getUriForFile(
             context,
@@ -42,7 +65,7 @@ class PdfExportManager(
             outputFile
         )
 
-        ExportedPdf(
+        return ExportedPdf(
             fileName = fileName,
             uri = uri
         )

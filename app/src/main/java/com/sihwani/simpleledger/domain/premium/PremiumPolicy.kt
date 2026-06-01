@@ -3,13 +3,13 @@ package com.sihwani.simpleledger.domain.premium
 object PremiumPolicy {
     private const val BYTES_PER_MEGABYTE = 1024L * 1024L
 
-    const val PrintableMonthlyPdfFeatureName = "프린트용 월 가계부 PDF 만들기"
-    const val FreeMonthlyPdfTrialLimit = 3
+    const val PrintablePdfFeatureName = "프린트용 가계부 PDF 만들기"
+    const val FreePdfTrialLimit = 3
     const val ReceiptImageMaxBytes = 8L * BYTES_PER_MEGABYTE
 
     val CurrentPremiumFeatures = listOf(
         "광고 제거",
-        "월 가계부 PDF 무제한 생성"
+        "월별/연도별 가계부 PDF 무제한 생성"
     )
 
     val PlannedPremiumFeatures = listOf(
