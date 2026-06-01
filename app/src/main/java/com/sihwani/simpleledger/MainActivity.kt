@@ -12,6 +12,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.sihwani.simpleledger.data.ads.MobileAdsInitializer
 import com.sihwani.simpleledger.data.backup.BackupFileManager
 import com.sihwani.simpleledger.data.local.LedgerDatabase
+import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
@@ -35,6 +36,9 @@ class MainActivity : ComponentActivity() {
     private val premiumRepository: PremiumRepository by lazy {
         PremiumRepository(applicationContext)
     }
+    private val pdfExportManager: PdfExportManager by lazy {
+        PdfExportManager(applicationContext)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -45,7 +49,8 @@ class MainActivity : ComponentActivity() {
                 transactionRepository = transactionRepository,
                 receiptImageStorage = receiptImageStorage,
                 backupFileManager = backupFileManager,
-                premiumRepository = premiumRepository
+                premiumRepository = premiumRepository,
+                pdfExportManager = pdfExportManager
             )
         }
     }
@@ -56,7 +61,8 @@ private fun HannunLedgerApp(
     transactionRepository: TransactionRepository,
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
-    premiumRepository: PremiumRepository
+    premiumRepository: PremiumRepository,
+    pdfExportManager: PdfExportManager
 ) {
     LedgerTheme {
         Surface(
@@ -67,7 +73,8 @@ private fun HannunLedgerApp(
                 transactionRepository = transactionRepository,
                 receiptImageStorage = receiptImageStorage,
                 backupFileManager = backupFileManager,
-                premiumRepository = premiumRepository
+                premiumRepository = premiumRepository,
+                pdfExportManager = pdfExportManager
             )
         }
     }

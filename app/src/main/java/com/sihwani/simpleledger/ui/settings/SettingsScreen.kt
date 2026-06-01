@@ -143,7 +143,12 @@ private fun PremiumSection(
         )
 
         SectionLabel(text = "현재 제공")
-        BenefitText(text = "광고 제거")
+        PremiumPolicy.CurrentPremiumFeatures.forEach { feature ->
+            BenefitText(text = feature)
+        }
+
+        SectionLabel(text = "무료 제공")
+        BenefitText(text = "월 가계부 PDF ${PremiumPolicy.FreeMonthlyPdfTrialLimit}회 체험")
 
         SectionLabel(text = "향후 제공 예정")
         PremiumPolicy.PlannedPremiumFeatures.forEach { feature ->

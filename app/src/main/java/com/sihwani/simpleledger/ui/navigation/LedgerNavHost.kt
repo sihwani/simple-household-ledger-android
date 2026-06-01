@@ -13,6 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sihwani.simpleledger.BuildConfig
 import com.sihwani.simpleledger.data.backup.BackupFileManager
+import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
@@ -41,10 +42,10 @@ fun LedgerNavHost(
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
     premiumRepository: PremiumRepository,
+    pdfExportManager: PdfExportManager,
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
-    val isPremium by premiumRepository.isPremium.collectAsState()
 
     NavHost(
         navController = navController,
@@ -53,7 +54,11 @@ fun LedgerNavHost(
     ) {
         composable(LedgerRoutes.Home) {
             val homeViewModel: HomeViewModel = viewModel(
-                factory = HomeViewModelFactory(transactionRepository)
+                factory = HomeViewModelFactory(
+                    transactionRepository = transactionRepository,
+                    premiumRepository = premiumRepository,
+                    pdfExportManager = pdfExportManager
+                )
             )
             val uiState by homeViewModel.uiState.collectAsState()
 
@@ -71,10 +76,13 @@ fun LedgerNavHost(
                 onShowHistory = { navController.navigate(LedgerRoutes.History) },
                 onOpenSettings = { navController.navigate(LedgerRoutes.Settings) },
                 onMonthSelected = homeViewModel::moveToMonth,
+                onExportMonthlyPdf = homeViewModel::exportMonthlyPdf,
+                onDismissPdfPremiumDialog = homeViewModel::dismissPdfPremiumDialog,
+                onPdfShareIntentHandled = homeViewModel::clearPdfShareUri,
+                onPdfOpenFailed = homeViewModel::showPdfOpenFailedMessage,
                 onTransactionClick = { transactionId ->
                     navController.navigate(LedgerRoutes.transactionDetail(transactionId))
-                },
-                isPremium = isPremium
+                }
             )
         }
 
