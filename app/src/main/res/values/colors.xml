@@ -1,0 +1,9 @@
+<resources>
+    <color name="ledger_primary">#18181B</color>
+    <color name="ledger_background">#F6F7F9</color>
+    <color name="ledger_surface">#FFFFFF</color>
+    <color name="ledger_surface_variant">#F4F4F5</color>
+    <color name="ledger_income">#047857</color>
+    <color name="ledger_expense">#BE123C</color>
+    <color name="ledger_icon_background">#047857</color>
+</resources>

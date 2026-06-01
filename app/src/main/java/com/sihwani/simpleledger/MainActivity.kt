@@ -8,11 +8,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.sihwani.simpleledger.data.backup.BackupFileManager
 import com.sihwani.simpleledger.data.local.LedgerDatabase
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
 import com.sihwani.simpleledger.ui.navigation.LedgerNavHost
+import com.sihwani.simpleledger.ui.theme.LedgerTheme
 
 class MainActivity : ComponentActivity() {
     private val transactionRepository: TransactionRepository by lazy {
@@ -30,6 +32,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         setContent {
             HannunLedgerApp(
@@ -47,7 +50,7 @@ private fun HannunLedgerApp(
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager
 ) {
-    MaterialTheme {
+    LedgerTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">한눈 가계부</string>
-    <style name="Theme.HannunLedger" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:windowActionBar">false</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:fontFamily">sans</item>
-    </style>
-</resources>
