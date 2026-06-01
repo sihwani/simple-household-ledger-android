@@ -57,6 +57,7 @@ fun HomeScreen(
     onAddIncome: () -> Unit,
     onHome: () -> Unit,
     onShowHistory: () -> Unit,
+    onOpenSettings: () -> Unit,
     onMonthSelected: (String) -> Unit,
     onTransactionClick: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -87,7 +88,7 @@ fun HomeScreen(
                 .padding(top = 20.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            HomeHeader()
+            HomeHeader(onOpenSettings = onOpenSettings)
             MonthSelector(
                 selectedMonthKey = uiState.selectedMonthKey,
                 monthLabel = uiState.monthLabel,
@@ -163,21 +164,39 @@ private fun HomeActionBar(
 }
 
 @Composable
-private fun HomeHeader() {
-    Column {
-        Text(
-            text = "한눈 가계부",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color(0xFF18181B)
-        )
-        Text(
-            text = "월별 수입과 지출을 한눈에 확인하세요.",
-            modifier = Modifier.padding(top = 4.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF71717A)
-        )
+private fun HomeHeader(
+    onOpenSettings: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "한눈 가계부",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF18181B)
+            )
+            Text(
+                text = "월별 수입과 지출을 한눈에 확인하세요.",
+                modifier = Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF71717A)
+            )
+        }
+        OutlinedButton(
+            onClick = onOpenSettings,
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+        ) {
+            Text(
+                text = "설정",
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
     }
 }
 
@@ -621,6 +640,7 @@ private fun HomeScreenPreview() {
                 onAddIncome = {},
                 onHome = {},
                 onShowHistory = {},
+                onOpenSettings = {},
                 onMonthSelected = {},
                 onTransactionClick = {}
             )

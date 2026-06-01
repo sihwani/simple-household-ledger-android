@@ -35,19 +35,8 @@ import com.sihwani.simpleledger.util.MoneyFormatter
 @Composable
 fun HistoryScreen(
     uiState: HistoryUiState,
-    dataManagementUiState: DataManagementUiState,
     onBack: () -> Unit,
     onTransactionClick: (String) -> Unit,
-    onExportBackup: (String) -> Unit,
-    onImportBackup: (String) -> Unit,
-    onMergeImport: () -> Unit,
-    onRequestReplaceImport: () -> Unit,
-    onConfirmReplaceImport: () -> Unit,
-    onDismissImportModeDialog: () -> Unit,
-    onDismissReplaceConfirmDialog: () -> Unit,
-    onRequestDeleteAll: () -> Unit,
-    onConfirmDeleteAll: () -> Unit,
-    onDismissDeleteAllConfirmDialog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -78,20 +67,6 @@ fun HistoryScreen(
                 )
             }
         }
-
-        DataManagementSection(
-            uiState = dataManagementUiState,
-            onExportBackup = onExportBackup,
-            onImportBackup = onImportBackup,
-            onMergeImport = onMergeImport,
-            onRequestReplaceImport = onRequestReplaceImport,
-            onConfirmReplaceImport = onConfirmReplaceImport,
-            onDismissImportModeDialog = onDismissImportModeDialog,
-            onDismissReplaceConfirmDialog = onDismissReplaceConfirmDialog,
-            onRequestDeleteAll = onRequestDeleteAll,
-            onConfirmDeleteAll = onConfirmDeleteAll,
-            onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
-        )
 
         Spacer(modifier = Modifier.height(48.dp))
     }
@@ -338,19 +313,8 @@ private fun HistoryScreenPreview() {
                         )
                     )
                 ),
-                dataManagementUiState = DataManagementUiState(),
                 onBack = {},
-                onTransactionClick = {},
-                onExportBackup = {},
-                onImportBackup = {},
-                onMergeImport = {},
-                onRequestReplaceImport = {},
-                onConfirmReplaceImport = {},
-                onDismissImportModeDialog = {},
-                onDismissReplaceConfirmDialog = {},
-                onRequestDeleteAll = {},
-                onConfirmDeleteAll = {},
-                onDismissDeleteAllConfirmDialog = {}
+                onTransactionClick = {}
             )
         }
     }

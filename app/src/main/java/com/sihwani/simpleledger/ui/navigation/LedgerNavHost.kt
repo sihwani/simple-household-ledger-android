@@ -11,6 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.sihwani.simpleledger.BuildConfig
 import com.sihwani.simpleledger.data.backup.BackupFileManager
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
@@ -29,6 +30,9 @@ import com.sihwani.simpleledger.ui.history.HistoryViewModelFactory
 import com.sihwani.simpleledger.ui.home.HomeScreen
 import com.sihwani.simpleledger.ui.home.HomeViewModel
 import com.sihwani.simpleledger.ui.home.HomeViewModelFactory
+import com.sihwani.simpleledger.ui.settings.SettingsScreen
+import com.sihwani.simpleledger.ui.settings.SettingsViewModel
+import com.sihwani.simpleledger.ui.settings.SettingsViewModelFactory
 
 @Composable
 fun LedgerNavHost(
@@ -62,6 +66,7 @@ fun LedgerNavHost(
                     }
                 },
                 onShowHistory = { navController.navigate(LedgerRoutes.History) },
+                onOpenSettings = { navController.navigate(LedgerRoutes.Settings) },
                 onMonthSelected = homeViewModel::moveToMonth,
                 onTransactionClick = { transactionId ->
                     navController.navigate(LedgerRoutes.transactionDetail(transactionId))
@@ -134,6 +139,21 @@ fun LedgerNavHost(
                 factory = HistoryViewModelFactory(transactionRepository)
             )
             val uiState by historyViewModel.uiState.collectAsState()
+
+            HistoryScreen(
+                uiState = uiState,
+                onBack = { navController.popBackStack() },
+                onTransactionClick = { transactionId ->
+                    navController.navigate(LedgerRoutes.transactionDetail(transactionId))
+                }
+            )
+        }
+
+        composable(LedgerRoutes.Settings) {
+            val settingsViewModel: SettingsViewModel = viewModel(
+                factory = SettingsViewModelFactory(transactionRepository)
+            )
+            val settingsUiState by settingsViewModel.uiState.collectAsState()
             val dataManagementViewModel: DataManagementViewModel = viewModel(
                 factory = DataManagementViewModelFactory(
                     transactionRepository = transactionRepository,
@@ -143,13 +163,13 @@ fun LedgerNavHost(
             )
             val dataManagementUiState by dataManagementViewModel.uiState.collectAsState()
 
-            HistoryScreen(
-                uiState = uiState,
+            SettingsScreen(
+                uiState = settingsUiState,
                 dataManagementUiState = dataManagementUiState,
                 onBack = { navController.popBackStack() },
-                onTransactionClick = { transactionId ->
-                    navController.navigate(LedgerRoutes.transactionDetail(transactionId))
-                },
+                versionName = BuildConfig.VERSION_NAME,
+                versionCode = BuildConfig.VERSION_CODE,
+                packageName = BuildConfig.APPLICATION_ID,
                 onExportBackup = dataManagementViewModel::exportBackup,
                 onImportBackup = dataManagementViewModel::importBackup,
                 onMergeImport = dataManagementViewModel::mergePendingImport,

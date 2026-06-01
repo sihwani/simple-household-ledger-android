@@ -5,6 +5,7 @@ object LedgerRoutes {
     const val IncomeForm = "transaction-form/income"
     const val ExpenseForm = "transaction-form/expense"
     const val History = "history"
+    const val Settings = "settings"
     const val TransactionDetail = "transaction-detail/{transactionId}"
     const val TransactionEdit = "transaction-edit/{transactionId}"
     const val TransactionIdArg = "transactionId"
