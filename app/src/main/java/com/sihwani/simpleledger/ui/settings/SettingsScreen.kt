@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.ui.history.DataManagementSection
 import com.sihwani.simpleledger.ui.history.DataManagementUiState
 
@@ -36,7 +39,9 @@ fun SettingsScreen(
     versionName: String,
     versionCode: Int,
     packageName: String,
+    showDebugPremiumToggle: Boolean,
     onBack: () -> Unit,
+    onDebugPremiumChange: (Boolean) -> Unit,
     onExportBackup: (String) -> Unit,
     onImportBackup: (String) -> Unit,
     onMergeImport: () -> Unit,
@@ -58,7 +63,11 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         SettingsHeader(onBack = onBack)
-        PremiumSection()
+        PremiumSection(
+            isPremium = uiState.isPremium,
+            showDebugPremiumToggle = showDebugPremiumToggle,
+            onDebugPremiumChange = onDebugPremiumChange
+        )
         DataManagementSection(
             uiState = dataManagementUiState,
             onExportBackup = onExportBackup,
@@ -110,13 +119,17 @@ private fun SettingsHeader(
 }
 
 @Composable
-private fun PremiumSection() {
+private fun PremiumSection(
+    isPremium: Boolean,
+    showDebugPremiumToggle: Boolean,
+    onDebugPremiumChange: (Boolean) -> Unit
+) {
     SettingsCard(title = "프리미엄") {
         Text(
-            text = "프리미엄 안내",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color(0xFF18181B)
+            text = "한 번만 구매하면 더 깔끔하고 편리하게 사용할 수 있습니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF71717A)
         )
         Text(
             text = "예상 가격: 1,500원 1회 구매",
@@ -124,8 +137,21 @@ private fun PremiumSection() {
             fontWeight = FontWeight.Bold,
             color = Color(0xFF047857)
         )
+        InfoRow(
+            label = "현재 상태",
+            value = if (isPremium) "프리미엄" else "무료"
+        )
+
+        SectionLabel(text = "현재 제공")
+        BenefitText(text = "광고 제거")
+
+        SectionLabel(text = "향후 제공 예정")
+        PremiumPolicy.PlannedPremiumFeatures.forEach { feature ->
+            BenefitText(text = feature)
+        }
+
         Text(
-            text = "준비 중",
+            text = "※ 결제 기능은 출시 준비 단계에서 연결될 예정입니다.",
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
@@ -134,13 +160,41 @@ private fun PremiumSection() {
                 )
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.ExtraBold,
+            fontWeight = FontWeight.Bold,
             color = Color(0xFF71717A)
         )
-        BenefitText(text = "광고 제거")
-        BenefitText(text = "데이터 내보내기/가져오기")
-        BenefitText(text = "영수증 사진 첨부 제한 완화")
-        BenefitText(text = "향후 추가 프리미엄 기능 포함")
+
+        Button(
+            onClick = {},
+            enabled = false,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
+        ) {
+            Text(
+                text = "구매 기능 준비 중",
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+
+        if (showDebugPremiumToggle) {
+            OutlinedButton(
+                onClick = { onDebugPremiumChange(!isPremium) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(
+                    text = if (isPremium) "개발용: 무료 상태로 전환" else "개발용: 프리미엄 상태로 전환",
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 
@@ -150,11 +204,22 @@ private fun ReceiptSection(
 ) {
     SettingsCard(title = "영수증") {
         InfoRow(label = "현재 첨부된 사진", value = "${receiptImageCount}장")
-        InfoRow(label = "무료 제한", value = "최대 20장")
-        InfoRow(label = "프리미엄 제한", value = "최대 1,000장")
+        InfoRow(label = "파일 용량 제한", value = "1장당 최대 8MB")
         Text(
-            text = "현재 MVP에서는 제한 안내만 표시하며, 실제 제한 적용은 추후 프리미엄 기능과 함께 정리할 예정입니다.",
-            style = MaterialTheme.typography.bodySmall,
+            text = "영수증 사진은 지출 내역의 보조 기록으로 첨부할 수 있습니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF18181B)
+        )
+        Text(
+            text = "사진 파일은 앱 내부 저장소에 보관됩니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF71717A)
+        )
+        Text(
+            text = "백업 파일에는 영수증 사진이 포함되지 않습니다.",
+            style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = Color(0xFF71717A)
         )
@@ -215,6 +280,18 @@ private fun SettingsCard(
 }
 
 @Composable
+private fun SectionLabel(
+    text: String
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.ExtraBold,
+        color = Color(0xFF18181B)
+    )
+}
+
+@Composable
 private fun BenefitText(
     text: String
 ) {
@@ -267,7 +344,9 @@ private fun SettingsScreenPreview() {
                 versionName = "0.1.0",
                 versionCode = 1,
                 packageName = "com.sihwani.simpleledger",
+                showDebugPremiumToggle = true,
                 onBack = {},
+                onDebugPremiumChange = {},
                 onExportBackup = {},
                 onImportBackup = {},
                 onMergeImport = {},

@@ -8,6 +8,7 @@ import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionCategories
 import com.sihwani.simpleledger.domain.model.TransactionType
+import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.util.DateUtils
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -197,7 +198,7 @@ class TransactionFormViewModel(
         val validationMessage = when {
             state.isEditMode && original == null -> "수정할 내역을 찾을 수 없습니다."
             amount == null || amount < 1L -> "금액은 1원 이상 입력해주세요."
-            title.isEmpty() -> "${state.titleLabel}을 입력해주세요."
+            title.isEmpty() -> "${state.titleLabel}를 입력해주세요."
             state.category.isBlank() -> "카테고리를 선택해주세요."
             !DateUtils.isValidIsoDate(state.date) -> "날짜는 YYYY-MM-DD 형식으로 입력해주세요."
             else -> null
@@ -286,7 +287,8 @@ class TransactionFormViewModel(
         state.selectedReceiptImageUri?.let { uriString ->
             return receiptImageStorage.copyToInternalStorage(
                 sourceUriString = uriString,
-                transactionId = transactionId
+                transactionId = transactionId,
+                maxBytes = PremiumPolicy.ReceiptImageMaxBytes
             )
         }
 

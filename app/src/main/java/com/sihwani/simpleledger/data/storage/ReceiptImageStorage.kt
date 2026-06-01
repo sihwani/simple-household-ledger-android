@@ -16,7 +16,8 @@ class ReceiptImageStorage(
 ) {
     suspend fun copyToInternalStorage(
         sourceUriString: String,
-        transactionId: String
+        transactionId: String,
+        maxBytes: Long = MAX_RECEIPT_IMAGE_BYTES
     ): String = withContext(ioDispatcher) {
         val sourceUri = Uri.parse(sourceUriString)
         val mimeType = context.contentResolver.getType(sourceUri)
@@ -26,8 +27,8 @@ class ReceiptImageStorage(
         }
 
         val knownSize = queryFileSize(sourceUri)
-        if (knownSize != null && knownSize > MAX_RECEIPT_IMAGE_BYTES) {
-            throw IllegalArgumentException("영수증 이미지는 8MB 이하만 첨부할 수 있습니다.")
+        if (knownSize != null && knownSize > maxBytes) {
+            throw IllegalArgumentException(receiptSizeErrorMessage(maxBytes))
         }
 
         val receiptsDir = File(context.filesDir, RECEIPT_DIR_NAME).apply {
@@ -53,8 +54,8 @@ class ReceiptImageStorage(
                         }
 
                         copiedBytes += read
-                        if (copiedBytes > MAX_RECEIPT_IMAGE_BYTES) {
-                            throw IllegalArgumentException("영수증 이미지는 8MB 이하만 첨부할 수 있습니다.")
+                        if (copiedBytes > maxBytes) {
+                            throw IllegalArgumentException(receiptSizeErrorMessage(maxBytes))
                         }
                         output.write(buffer, 0, read)
                     }
@@ -107,8 +108,14 @@ class ReceiptImageStorage(
         }
     }
 
+    private fun receiptSizeErrorMessage(maxBytes: Long): String {
+        val megabytes = maxBytes / BYTES_PER_MEGABYTE
+        return "영수증 이미지는 ${megabytes}MB 이하만 첨부할 수 있습니다."
+    }
+
     private companion object {
         const val RECEIPT_DIR_NAME = "receipts"
-        const val MAX_RECEIPT_IMAGE_BYTES = 8L * 1024L * 1024L
+        const val BYTES_PER_MEGABYTE = 1024L * 1024L
+        const val MAX_RECEIPT_IMAGE_BYTES = 8L * BYTES_PER_MEGABYTE
     }
 }

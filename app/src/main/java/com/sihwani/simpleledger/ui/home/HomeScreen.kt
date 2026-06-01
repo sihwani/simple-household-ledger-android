@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.sihwani.simpleledger.domain.model.MonthlySummary
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionType
+import com.sihwani.simpleledger.ui.ads.TopBannerAd
 import com.sihwani.simpleledger.util.DateUtils
 import com.sihwani.simpleledger.util.MoneyFormatter
 
@@ -60,6 +61,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onMonthSelected: (String) -> Unit,
     onTransactionClick: (String) -> Unit,
+    isPremium: Boolean,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -89,6 +91,7 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             HomeHeader(onOpenSettings = onOpenSettings)
+            TopBannerAd(isPremium = isPremium)
             MonthSelector(
                 selectedMonthKey = uiState.selectedMonthKey,
                 monthLabel = uiState.monthLabel,
@@ -642,7 +645,8 @@ private fun HomeScreenPreview() {
                 onShowHistory = {},
                 onOpenSettings = {},
                 onMonthSelected = {},
-                onTransactionClick = {}
+                onTransactionClick = {},
+                isPremium = false
             )
         }
     }

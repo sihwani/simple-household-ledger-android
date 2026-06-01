@@ -9,8 +9,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.sihwani.simpleledger.data.ads.MobileAdsInitializer
 import com.sihwani.simpleledger.data.backup.BackupFileManager
 import com.sihwani.simpleledger.data.local.LedgerDatabase
+import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
 import com.sihwani.simpleledger.ui.navigation.LedgerNavHost
@@ -30,15 +32,20 @@ class MainActivity : ComponentActivity() {
     private val backupFileManager: BackupFileManager by lazy {
         BackupFileManager(applicationContext)
     }
+    private val premiumRepository: PremiumRepository by lazy {
+        PremiumRepository(applicationContext)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        MobileAdsInitializer.initialize(applicationContext)
         setContent {
             HannunLedgerApp(
                 transactionRepository = transactionRepository,
                 receiptImageStorage = receiptImageStorage,
-                backupFileManager = backupFileManager
+                backupFileManager = backupFileManager,
+                premiumRepository = premiumRepository
             )
         }
     }
@@ -48,7 +55,8 @@ class MainActivity : ComponentActivity() {
 private fun HannunLedgerApp(
     transactionRepository: TransactionRepository,
     receiptImageStorage: ReceiptImageStorage,
-    backupFileManager: BackupFileManager
+    backupFileManager: BackupFileManager,
+    premiumRepository: PremiumRepository
 ) {
     LedgerTheme {
         Surface(
@@ -58,7 +66,8 @@ private fun HannunLedgerApp(
             LedgerNavHost(
                 transactionRepository = transactionRepository,
                 receiptImageStorage = receiptImageStorage,
-                backupFileManager = backupFileManager
+                backupFileManager = backupFileManager,
+                premiumRepository = premiumRepository
             )
         }
     }

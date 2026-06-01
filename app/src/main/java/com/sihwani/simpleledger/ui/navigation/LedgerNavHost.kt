@@ -13,6 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sihwani.simpleledger.BuildConfig
 import com.sihwani.simpleledger.data.backup.BackupFileManager
+import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
 import com.sihwani.simpleledger.domain.model.TransactionType
@@ -39,9 +40,11 @@ fun LedgerNavHost(
     transactionRepository: TransactionRepository,
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
+    premiumRepository: PremiumRepository,
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
+    val isPremium by premiumRepository.isPremium.collectAsState()
 
     NavHost(
         navController = navController,
@@ -70,7 +73,8 @@ fun LedgerNavHost(
                 onMonthSelected = homeViewModel::moveToMonth,
                 onTransactionClick = { transactionId ->
                     navController.navigate(LedgerRoutes.transactionDetail(transactionId))
-                }
+                },
+                isPremium = isPremium
             )
         }
 
@@ -151,7 +155,10 @@ fun LedgerNavHost(
 
         composable(LedgerRoutes.Settings) {
             val settingsViewModel: SettingsViewModel = viewModel(
-                factory = SettingsViewModelFactory(transactionRepository)
+                factory = SettingsViewModelFactory(
+                    transactionRepository = transactionRepository,
+                    premiumRepository = premiumRepository
+                )
             )
             val settingsUiState by settingsViewModel.uiState.collectAsState()
             val dataManagementViewModel: DataManagementViewModel = viewModel(
@@ -170,6 +177,8 @@ fun LedgerNavHost(
                 versionName = BuildConfig.VERSION_NAME,
                 versionCode = BuildConfig.VERSION_CODE,
                 packageName = BuildConfig.APPLICATION_ID,
+                showDebugPremiumToggle = BuildConfig.DEBUG,
+                onDebugPremiumChange = settingsViewModel::setPremiumForDebug,
                 onExportBackup = dataManagementViewModel::exportBackup,
                 onImportBackup = dataManagementViewModel::importBackup,
                 onMergeImport = dataManagementViewModel::mergePendingImport,
