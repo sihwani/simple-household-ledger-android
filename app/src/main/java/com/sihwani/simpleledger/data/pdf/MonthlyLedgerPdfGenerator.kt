@@ -14,6 +14,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 
 class MonthlyLedgerPdfGenerator {
     fun generate(
@@ -127,6 +128,7 @@ class MonthlyLedgerPdfGenerator {
                 income = reportData.summary.income,
                 expense = reportData.summary.expense,
                 balance = reportData.summary.balance,
+                settlementLabel = "월 정산",
                 generatedDateIso = reportData.generatedDateIso
             )
         } else {
@@ -160,6 +162,7 @@ class MonthlyLedgerPdfGenerator {
                 income = reportData.incomeTotal,
                 expense = reportData.expenseTotal,
                 balance = reportData.balance,
+                settlementLabel = "연도 정산",
                 generatedDateIso = reportData.generatedDateIso
             )
         } else {
@@ -185,6 +188,7 @@ class MonthlyLedgerPdfGenerator {
         income: Long,
         expense: Long,
         balance: Long,
+        settlementLabel: String,
         generatedDateIso: String
     ): Int {
         var nextY = y
@@ -192,7 +196,7 @@ class MonthlyLedgerPdfGenerator {
         nextY += 20
         canvas.drawText("총 지출: ${formatWon(expense)}", LEFT_MARGIN.toFloat(), nextY.toFloat(), summaryPaint)
         nextY += 20
-        canvas.drawText("잔액: ${formatWon(balance)}", LEFT_MARGIN.toFloat(), nextY.toFloat(), summaryPaint)
+        canvas.drawText("$settlementLabel: ${formatSignedWon(balance)}", LEFT_MARGIN.toFloat(), nextY.toFloat(), summaryPaint)
         nextY += 22
         canvas.drawText("생성일 $generatedDateIso", LEFT_MARGIN.toFloat(), nextY.toFloat(), smallPaint)
         nextY += 30
@@ -210,7 +214,7 @@ class MonthlyLedgerPdfGenerator {
         canvas.drawText(title, LEFT_MARGIN.toFloat(), nextY.toFloat(), sectionTitlePaint)
         nextY += 22
         canvas.drawText(
-            "총 수입 ${formatWon(section.incomeTotal)} · 총 지출 ${formatWon(section.expenseTotal)} · 잔액 ${formatWon(section.balance)}",
+            "총 수입 ${formatWon(section.incomeTotal)} · 총 지출 ${formatWon(section.expenseTotal)} · 정산 ${formatSignedWon(section.balance)}",
             LEFT_MARGIN.toFloat(),
             nextY.toFloat(),
             smallPaint
@@ -412,6 +416,14 @@ class MonthlyLedgerPdfGenerator {
 
     private fun formatWon(amount: Long): String {
         return "${numberFormatter.format(amount)}원"
+    }
+
+    private fun formatSignedWon(amount: Long): String {
+        return when {
+            amount > 0L -> "+${formatWon(amount)}"
+            amount < 0L -> "-${formatWon(abs(amount))}"
+            else -> formatWon(0L)
+        }
     }
 
     private fun transactionSort(): Comparator<Transaction> {

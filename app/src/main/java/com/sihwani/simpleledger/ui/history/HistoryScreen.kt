@@ -226,7 +226,7 @@ private fun YearSummaryCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "총 지출 ${MoneyFormatter.formatWon(section.expenseTotal)} · 잔액 ${MoneyFormatter.formatSignedWon(section.balance)}",
+                    text = "총 지출 ${MoneyFormatter.formatWon(section.expenseTotal)} · 정산 ${MoneyFormatter.formatSignedWon(section.balance)}",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFD4D4D8),
@@ -310,7 +310,7 @@ private fun MonthlyHistorySectionCard(
                     color = Color(0xFFBE123C)
                 )
                 MonthlySummaryLine(
-                    label = "${section.monthKey.takeLast(2).toInt()}월 잔액",
+                    label = "${section.monthKey.takeLast(2).toInt()}월 정산",
                     amount = MoneyFormatter.formatSignedWon(section.balance),
                     color = if (section.balance >= 0L) Color(0xFF047857) else Color(0xFFBE123C)
                 )

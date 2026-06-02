@@ -404,13 +404,13 @@ private fun SummaryCard(summary: MonthlySummary) {
                 .padding(20.dp)
         ) {
             Text(
-                text = "이번 달 잔액",
+                text = "이번 달 정산",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFD4D4D8)
             )
             Text(
-                text = MoneyFormatter.formatWon(summary.balance),
+                text = MoneyFormatter.formatSignedWon(summary.balance),
                 modifier = Modifier.padding(top = 10.dp),
                 fontSize = 30.sp,
                 lineHeight = 36.sp,
@@ -424,7 +424,22 @@ private fun SummaryCard(summary: MonthlySummary) {
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFE4E4E7)
             )
+            Text(
+                text = monthlySettlementDescription(summary.balance),
+                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD4D4D8)
+            )
         }
+    }
+}
+
+private fun monthlySettlementDescription(amount: Long): String {
+    return when {
+        amount > 0L -> "이번 달은 ${MoneyFormatter.formatWon(amount)} 남았습니다."
+        amount < 0L -> "이번 달은 ${MoneyFormatter.formatWon(-amount)} 초과 지출했습니다."
+        else -> "이번 달 수입과 지출이 같습니다."
     }
 }
 
