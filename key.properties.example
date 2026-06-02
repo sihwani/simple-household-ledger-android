@@ -1,0 +1,4 @@
+storeFile=C:\\Users\\sihwa\\keystores\\hannun-ledger-upload.jks
+storePassword=YOUR_STORE_PASSWORD
+keyAlias=hannun-ledger-upload
+keyPassword=YOUR_KEY_PASSWORD

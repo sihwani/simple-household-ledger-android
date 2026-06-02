@@ -1,6 +1,7 @@
 ﻿package com.sihwani.simpleledger.data.premium
 
 import android.content.Context
+import com.sihwani.simpleledger.BuildConfig
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,10 @@ class PremiumRepository(
     val pdfTrialUsed: StateFlow<Int> = _pdfTrialUsed
 
     fun setPremiumForDebug(isPremium: Boolean) {
+        if (!BuildConfig.DEBUG) {
+            return
+        }
+
         preferences.edit()
             .putBoolean(KEY_IS_PREMIUM, isPremium)
             .apply()

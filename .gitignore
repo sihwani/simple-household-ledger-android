@@ -4,8 +4,13 @@
 .kotlin/
 **/build/
 local.properties
+key.properties
 *.jks
 *.keystore
+*.p12
+*.pem
+*.der
+*.pk8
 *.log
 *.err
 *.out
