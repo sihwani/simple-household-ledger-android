@@ -69,7 +69,7 @@ fun DataManagementSection(
                 color = Color(0xFF18181B)
             )
             Text(
-                text = "백업 파일에는 거래 내역과 계좌/지갑 정보가 포함되며, 영수증 사진은 포함되지 않습니다.",
+                text = "백업 파일에는 거래 내역, 계좌/지갑, 반복 거래 정보가 포함되며, 영수증 사진은 포함되지 않습니다.",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF71717A)
@@ -153,7 +153,7 @@ fun DataManagementSection(
             title = { Text(text = "데이터 가져오기") },
             text = {
                 Text(
-                    text = "백업 파일에서 거래 ${uiState.pendingImportCount}건, 계좌/지갑 ${uiState.pendingImportAccountCount}건을 찾았습니다. 가져온 백업을 어떻게 반영할까요?"
+                    text = "백업 파일에서 거래 ${uiState.pendingImportCount}건, 계좌/지갑 ${uiState.pendingImportAccountCount}건, 반복 거래 ${uiState.pendingImportRecurringCount}건을 찾았습니다. 가져온 백업을 어떻게 반영할까요?"
                 )
             },
             confirmButton = {
@@ -188,7 +188,7 @@ fun DataManagementSection(
             onDismissRequest = onDismissReplaceConfirmDialog,
             title = { Text(text = "백업 데이터로 교체") },
             text = {
-                Text(text = "기존 거래 내역과 계좌/지갑 데이터를 모두 지우고 백업 데이터로 교체하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
+                Text(text = "기존 거래 내역, 계좌/지갑, 반복 거래 데이터를 모두 지우고 백업 데이터로 교체하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
             },
             confirmButton = {
                 Button(
@@ -215,7 +215,7 @@ fun DataManagementSection(
             onDismissRequest = onDismissDeleteAllConfirmDialog,
             title = { Text(text = "전체 데이터 삭제") },
             text = {
-                Text(text = "정말 모든 거래 내역과 계좌/지갑 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
+                Text(text = "정말 모든 거래 내역, 계좌/지갑, 반복 거래 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
             },
             confirmButton = {
                 Button(

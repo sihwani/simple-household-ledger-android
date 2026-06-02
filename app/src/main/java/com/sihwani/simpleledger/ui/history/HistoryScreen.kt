@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.sihwani.simpleledger.domain.model.Transaction
+import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.util.DateUtils
@@ -368,6 +369,12 @@ private fun HistoryTransactionItem(
     val amountText = when (transaction.type) {
         TransactionType.INCOME -> "+${MoneyFormatter.formatWon(transaction.amount)}"
         TransactionType.EXPENSE -> "-${MoneyFormatter.formatWon(transaction.amount)}"
+    }.let { text ->
+        if (transaction.transactionStatus == TransactionStatus.SCHEDULED) {
+            "$text · 예정"
+        } else {
+            text
+        }
     }
     val amountColor = when (transaction.type) {
         TransactionType.INCOME -> Color(0xFF047857)

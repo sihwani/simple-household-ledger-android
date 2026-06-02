@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.sihwani.simpleledger.data.repository.AccountRepository
+import com.sihwani.simpleledger.data.repository.RecurringTransactionRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
+import com.sihwani.simpleledger.domain.model.RecurringSkippedOccurrence
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.util.AccountFormatter
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -31,6 +34,7 @@ data class TransactionDetailUiState(
 class TransactionDetailViewModel(
     private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
+    private val recurringTransactionRepository: RecurringTransactionRepository,
     private val receiptImageStorage: ReceiptImageStorage,
     private val transactionId: String
 ) : ViewModel() {
@@ -106,6 +110,18 @@ class TransactionDetailViewModel(
             }
 
             runCatching {
+                val recurringRuleId = transaction.recurringRuleId
+                val recurringOccurrenceKey = transaction.recurringOccurrenceKey
+                if (recurringRuleId != null && recurringOccurrenceKey != null) {
+                    recurringTransactionRepository.addSkippedOccurrence(
+                        RecurringSkippedOccurrence(
+                            id = UUID.randomUUID().toString(),
+                            recurringRuleId = recurringRuleId,
+                            recurringOccurrenceKey = recurringOccurrenceKey,
+                            createdAt = System.currentTimeMillis()
+                        )
+                    )
+                }
                 transactionRepository.delete(id)
                 runCatching {
                     receiptImageStorage.delete(receiptImagePath)
@@ -133,6 +149,7 @@ class TransactionDetailViewModel(
 class TransactionDetailViewModelFactory(
     private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
+    private val recurringTransactionRepository: RecurringTransactionRepository,
     private val receiptImageStorage: ReceiptImageStorage,
     private val transactionId: String
 ) : ViewModelProvider.Factory {
@@ -142,6 +159,7 @@ class TransactionDetailViewModelFactory(
             return TransactionDetailViewModel(
                 transactionRepository = transactionRepository,
                 accountRepository = accountRepository,
+                recurringTransactionRepository = recurringTransactionRepository,
                 receiptImageStorage = receiptImageStorage,
                 transactionId = transactionId
             ) as T

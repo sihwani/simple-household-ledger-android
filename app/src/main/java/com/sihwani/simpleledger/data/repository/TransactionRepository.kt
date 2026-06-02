@@ -7,6 +7,7 @@ import com.sihwani.simpleledger.data.mapper.toEntity
 import com.sihwani.simpleledger.domain.model.Account
 import com.sihwani.simpleledger.domain.model.MonthlySummary
 import com.sihwani.simpleledger.domain.model.Transaction
+import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,16 @@ class TransactionRepository(
         transactionDao.upsertAll(transactions.map { it.toEntity() })
     }
 
+    suspend fun markScheduledDueAsPosted(
+        todayIso: String,
+        updatedAt: Long = System.currentTimeMillis()
+    ) = withContext(ioDispatcher) {
+        transactionDao.markScheduledDueAsPosted(
+            todayIso = todayIso,
+            updatedAt = updatedAt
+        )
+    }
+
     suspend fun delete(id: String) = withContext(ioDispatcher) {
         transactionDao.deleteById(id)
     }
@@ -79,8 +90,9 @@ class TransactionRepository(
     }
 
     private fun List<Transaction>.toMonthlySummary(): MonthlySummary {
-        val income = filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
-        val expense = filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        val postedTransactions = filter { it.transactionStatus == TransactionStatus.POSTED }
+        val income = postedTransactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+        val expense = postedTransactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
 
         return MonthlySummary(
             income = income,

@@ -3,8 +3,10 @@ package com.sihwani.simpleledger.ui.account
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.sihwani.simpleledger.data.date.AppDateProvider
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.AccountRepository
+import com.sihwani.simpleledger.data.repository.RecurringTransactionRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.domain.account.AccountBalanceCalculator
 import com.sihwani.simpleledger.domain.model.Account
@@ -37,7 +39,11 @@ data class AccountManagementUiState(
 
 data class AccountBalanceItem(
     val account: Account,
-    val calculatedBalance: Long
+    val calculatedBalance: Long,
+    val scheduledIncome: Long = 0L,
+    val scheduledExpense: Long = 0L,
+    val expectedMonthEndBalance: Long = calculatedBalance,
+    val scheduledMonthLabel: String = DateUtils.formatMonthLabel(DateUtils.currentMonthKey())
 )
 
 data class AccountFormUiState(
@@ -74,7 +80,9 @@ private data class AccountManagementFormState(
 class AccountManagementViewModel(
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
-    private val premiumRepository: PremiumRepository
+    private val recurringTransactionRepository: RecurringTransactionRepository,
+    private val premiumRepository: PremiumRepository,
+    private val appDateProvider: AppDateProvider
 ) : ViewModel() {
     private val formState = MutableStateFlow(AccountManagementFormState())
 
@@ -82,12 +90,24 @@ class AccountManagementViewModel(
         accountRepository.observeAccounts(),
         transactionRepository.observeAllTransactions(),
         premiumRepository.isPremium,
+        appDateProvider.state,
         formState
-    ) { accounts, transactions, isPremium, currentFormState ->
+    ) { accounts, transactions, isPremium, dateState, currentFormState ->
+        val currentMonthKey = DateUtils.monthKey(dateState.currentDateIso)
         val accountItems = accounts.map { account ->
+            val scheduled = AccountBalanceCalculator.calculateScheduledForMonth(
+                account = account,
+                transactions = transactions,
+                monthKey = currentMonthKey
+            )
+            val calculatedBalance = AccountBalanceCalculator.calculate(account, transactions)
             AccountBalanceItem(
                 account = account,
-                calculatedBalance = AccountBalanceCalculator.calculate(account, transactions)
+                calculatedBalance = calculatedBalance,
+                scheduledIncome = scheduled.income,
+                scheduledExpense = scheduled.expense,
+                expectedMonthEndBalance = calculatedBalance + scheduled.income - scheduled.expense,
+                scheduledMonthLabel = DateUtils.formatMonthLabel(currentMonthKey)
             )
         }
         AccountManagementUiState(
@@ -118,7 +138,7 @@ class AccountManagementViewModel(
 
         formState.update {
             it.copy(
-                form = AccountFormUiState(),
+                form = AccountFormUiState(baseDate = appDateProvider.todayIso()),
                 message = null
             )
         }
@@ -367,6 +387,7 @@ class AccountManagementViewModel(
                 if (deleteDialog.linkedTransactionCount > 0) {
                     transactionRepository.updateAccountSnapshot(account)
                 }
+                recurringTransactionRepository.clearAccount(account.id)
                 accountRepository.deleteAccount(account.id)
             }.onSuccess {
                 formState.update {
@@ -430,7 +451,9 @@ class AccountManagementViewModel(
 class AccountManagementViewModelFactory(
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
-    private val premiumRepository: PremiumRepository
+    private val recurringTransactionRepository: RecurringTransactionRepository,
+    private val premiumRepository: PremiumRepository,
+    private val appDateProvider: AppDateProvider
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -438,7 +461,9 @@ class AccountManagementViewModelFactory(
             return AccountManagementViewModel(
                 accountRepository = accountRepository,
                 transactionRepository = transactionRepository,
-                premiumRepository = premiumRepository
+                recurringTransactionRepository = recurringTransactionRepository,
+                premiumRepository = premiumRepository,
+                appDateProvider = appDateProvider
             ) as T
         }
 

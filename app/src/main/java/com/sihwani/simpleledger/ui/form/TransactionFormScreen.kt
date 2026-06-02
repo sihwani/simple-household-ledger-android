@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,7 +51,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.sihwani.simpleledger.domain.model.Account
+import com.sihwani.simpleledger.domain.model.RecurringRepeatType
+import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
+import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.util.AccountFormatter
 import com.sihwani.simpleledger.util.DateUtils
 import java.io.File
@@ -63,6 +67,12 @@ fun TransactionFormScreen(
     onTitleChange: (String) -> Unit,
     onCategoryChange: (String) -> Unit,
     onDateChange: (String) -> Unit,
+    onTransactionStatusChange: (TransactionStatus) -> Unit,
+    onUseRecurringRuleChange: (Boolean) -> Unit,
+    onRecurringRepeatTypeChange: (RecurringRepeatType) -> Unit,
+    onRecurringEndDateChange: (String) -> Unit,
+    onShowRecurringPremiumInfo: () -> Unit,
+    onDismissRecurringPremiumInfo: () -> Unit,
     onMemoChange: (String) -> Unit,
     onAccountChange: (String?) -> Unit,
     onReceiptImageSelected: (String) -> Unit,
@@ -73,6 +83,7 @@ fun TransactionFormScreen(
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showRecurringEndDatePicker by rememberSaveable { mutableStateOf(false) }
     val receiptImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -204,6 +215,20 @@ fun TransactionFormScreen(
             shape = RoundedCornerShape(12.dp)
         )
 
+        TransactionStatusSection(
+            uiState = uiState,
+            onTransactionStatusChange = onTransactionStatusChange
+        )
+
+        RecurringRuleSection(
+            uiState = uiState,
+            onUseRecurringRuleChange = onUseRecurringRuleChange,
+            onRepeatTypeChange = onRecurringRepeatTypeChange,
+            onEndDateChange = onRecurringEndDateChange,
+            onPickEndDate = { showRecurringEndDatePicker = true },
+            onShowPremiumInfo = onShowRecurringPremiumInfo
+        )
+
         OutlinedTextField(
             value = uiState.memo,
             onValueChange = onMemoChange,
@@ -267,6 +292,41 @@ fun TransactionFormScreen(
             onConfirm = { dateIso ->
                 onDateChange(dateIso)
                 showDatePicker = false
+            }
+        )
+    }
+
+    if (showRecurringEndDatePicker) {
+        LedgerDatePickerDialog(
+            initialDate = uiState.recurringEndDate.ifBlank { uiState.date },
+            onDismiss = { showRecurringEndDatePicker = false },
+            onConfirm = { dateIso ->
+                onRecurringEndDateChange(dateIso)
+                showRecurringEndDatePicker = false
+            }
+        )
+    }
+
+    if (uiState.showRecurringPremiumDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissRecurringPremiumInfo,
+            title = { Text(text = "프리미엄 안내") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = "반복 거래는 프리미엄 기능입니다.")
+                    Text(text = "무료 사용자는 활성 반복 거래 ${PremiumPolicy.FreeRecurringRuleLimit}개까지 체험할 수 있습니다.")
+                    Text(text = "프리미엄을 구매하면 여러 반복 거래를 등록하고 예정 거래를 자동으로 만들 수 있습니다.")
+                    Text(
+                        text = "예상 가격: 1,500원 1회 구매",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(text = "※ 결제 기능은 출시 준비 단계에서 연결될 예정입니다.")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismissRecurringPremiumInfo) {
+                    Text(text = "확인")
+                }
             }
         )
     }
@@ -367,6 +427,220 @@ private fun LedgerDatePickerDialog(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun TransactionStatusSection(
+    uiState: TransactionFormUiState,
+    onTransactionStatusChange: (TransactionStatus) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "예정 거래",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF18181B)
+            )
+            Text(
+                text = if (uiState.useRecurringRule) {
+                    "반복 거래는 날짜에 따라 예정 또는 실제 반영 거래로 자동 생성됩니다."
+                } else {
+                    "한 번만 예정된 수입/지출입니다. 지정한 날짜가 되면 실제 거래로 반영됩니다."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF71717A)
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = uiState.transactionStatus == TransactionStatus.POSTED,
+                    enabled = !uiState.useRecurringRule,
+                    onClick = { onTransactionStatusChange(TransactionStatus.POSTED) },
+                    label = { Text(text = "실제 반영") }
+                )
+                FilterChip(
+                    selected = uiState.transactionStatus == TransactionStatus.SCHEDULED,
+                    enabled = !uiState.useRecurringRule,
+                    onClick = { onTransactionStatusChange(TransactionStatus.SCHEDULED) },
+                    label = { Text(text = "예정") }
+                )
+            }
+            uiState.datePolicyNotice?.let { message ->
+                Text(
+                    text = message,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = Color(0xFFF4F4F5),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF52525B)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun RecurringRuleSection(
+    uiState: TransactionFormUiState,
+    onUseRecurringRuleChange: (Boolean) -> Unit,
+    onRepeatTypeChange: (RecurringRepeatType) -> Unit,
+    onEndDateChange: (String) -> Unit,
+    onPickEndDate: () -> Unit,
+    onShowPremiumInfo: () -> Unit
+) {
+    if (!uiState.showRecurringSection) {
+        return
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "반복 거래",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF18181B)
+                )
+                Text(
+                    text = if (uiState.isPremium) "프리미엄" else "무료 체험 1개",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF047857),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = "매월, 매분기, 매년 자동으로 예정 거래를 만듭니다.",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF71717A)
+            )
+
+            if (uiState.isRecurringRuleLocked) {
+                Text(
+                    text = "무료 체험 한도를 모두 사용했습니다. 일반 예정 거래는 계속 무료로 사용할 수 있습니다.",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = Color(0xFFF4F4F5),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF71717A)
+                )
+                OutlinedButton(
+                    onClick = onShowPremiumInfo,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        text = "프리미엄 보기",
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                return@Column
+            }
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = !uiState.useRecurringRule,
+                    onClick = { onUseRecurringRuleChange(false) },
+                    label = { Text(text = "OFF") }
+                )
+                FilterChip(
+                    selected = uiState.useRecurringRule,
+                    onClick = { onUseRecurringRuleChange(true) },
+                    label = { Text(text = "반복 거래로 등록") }
+                )
+            }
+
+            if (uiState.useRecurringRule) {
+                Text(
+                    text = "반복 주기",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF18181B)
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    RecurringRepeatType.entries.forEach { repeatType ->
+                        FilterChip(
+                            selected = uiState.recurringRepeatType == repeatType,
+                            onClick = { onRepeatTypeChange(repeatType) },
+                            label = { Text(text = repeatTypeLabel(repeatType)) }
+                        )
+                    }
+                }
+                Text(
+                    text = "작성한 날짜를 기준으로 반복됩니다. 종료일을 선택하지 않으면 계속 반복되며, 앱은 12개월 앞까지만 예정 거래를 만듭니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF71717A)
+                )
+                OutlinedTextField(
+                    value = uiState.recurringEndDate.ifBlank { "종료일 없음" },
+                    onValueChange = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(text = "종료일") },
+                    readOnly = true,
+                    trailingIcon = {
+                        TextButton(onClick = onPickEndDate) {
+                            Text(text = "선택")
+                        }
+                    },
+                    singleLine = true
+                )
+                if (uiState.recurringEndDate.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = { onEndDateChange("") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(text = "종료일 없음으로 변경")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ReceiptImageSection(
     previewSource: String?,
     onPickImage: () -> Unit,
@@ -432,6 +706,14 @@ private fun ReceiptImageSection(
     }
 }
 
+private fun repeatTypeLabel(repeatType: RecurringRepeatType): String {
+    return when (repeatType) {
+        RecurringRepeatType.MONTHLY -> "매월"
+        RecurringRepeatType.QUARTERLY -> "매분기"
+        RecurringRepeatType.YEARLY -> "매년"
+    }
+}
+
 private fun receiptImageModel(source: String): Any {
     return when {
         source.startsWith("content://") -> Uri.parse(source)
@@ -477,6 +759,12 @@ private fun TransactionFormScreenPreview() {
                 onTitleChange = {},
                 onCategoryChange = {},
                 onDateChange = {},
+                onTransactionStatusChange = {},
+                onUseRecurringRuleChange = {},
+                onRecurringRepeatTypeChange = {},
+                onRecurringEndDateChange = {},
+                onShowRecurringPremiumInfo = {},
+                onDismissRecurringPremiumInfo = {},
                 onMemoChange = {},
                 onAccountChange = {},
                 onReceiptImageSelected = {},

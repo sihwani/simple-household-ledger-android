@@ -3,6 +3,7 @@
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.sihwani.simpleledger.data.date.AppDateProvider
 import com.sihwani.simpleledger.data.pdf.MonthlyLedgerReportData
 import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.pdf.YearlyLedgerMonthSection
@@ -11,6 +12,7 @@ import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.domain.model.MonthlySummary
 import com.sihwani.simpleledger.domain.model.Transaction
+import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.util.DateUtils
@@ -77,7 +79,8 @@ private data class HistoryPdfState(
 class HistoryViewModel(
     private val transactionRepository: TransactionRepository,
     private val premiumRepository: PremiumRepository,
-    private val pdfExportManager: PdfExportManager
+    private val pdfExportManager: PdfExportManager,
+    private val appDateProvider: AppDateProvider
 ) : ViewModel() {
     private val pdfState = MutableStateFlow(HistoryPdfState())
 
@@ -261,10 +264,12 @@ class HistoryViewModel(
             .sortedByDescending { entry -> entry.key }
             .map { entry ->
                 val monthTransactions = entry.value.sortedWith(transactionSort())
-                val incomeTotal = monthTransactions
+                val postedTransactions = monthTransactions
+                    .filter { transaction -> transaction.transactionStatus == TransactionStatus.POSTED }
+                val incomeTotal = postedTransactions
                     .filter { transaction -> transaction.type == TransactionType.INCOME }
                     .sumOf { transaction -> transaction.amount }
-                val expenseTotal = monthTransactions
+                val expenseTotal = postedTransactions
                     .filter { transaction -> transaction.type == TransactionType.EXPENSE }
                     .sumOf { transaction -> transaction.amount }
 
@@ -305,8 +310,9 @@ class HistoryViewModel(
                 expense = expenseTotal,
                 balance = balance
             ),
-            transactions = transactions,
-            generatedDateIso = DateUtils.todayIso()
+            transactions = transactions
+                .filter { transaction -> transaction.transactionStatus == TransactionStatus.POSTED },
+            generatedDateIso = appDateProvider.todayIso()
         )
     }
 
@@ -324,9 +330,10 @@ class HistoryViewModel(
                     expenseTotal = month.expenseTotal,
                     balance = month.balance,
                     transactions = month.transactions
+                        .filter { transaction -> transaction.transactionStatus == TransactionStatus.POSTED }
                 )
             },
-            generatedDateIso = DateUtils.todayIso()
+            generatedDateIso = appDateProvider.todayIso()
         )
     }
 
@@ -339,7 +346,8 @@ class HistoryViewModel(
 class HistoryViewModelFactory(
     private val transactionRepository: TransactionRepository,
     private val premiumRepository: PremiumRepository,
-    private val pdfExportManager: PdfExportManager
+    private val pdfExportManager: PdfExportManager,
+    private val appDateProvider: AppDateProvider
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -347,7 +355,8 @@ class HistoryViewModelFactory(
             return HistoryViewModel(
                 transactionRepository = transactionRepository,
                 premiumRepository = premiumRepository,
-                pdfExportManager = pdfExportManager
+                pdfExportManager = pdfExportManager,
+                appDateProvider = appDateProvider
             ) as T
         }
 

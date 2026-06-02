@@ -18,11 +18,15 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -37,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.ui.history.DataManagementSection
 import com.sihwani.simpleledger.ui.history.DataManagementUiState
+import com.sihwani.simpleledger.util.DateUtils
 
 @Composable
 fun SettingsScreen(
@@ -46,9 +51,14 @@ fun SettingsScreen(
     versionCode: Int,
     packageName: String,
     showDebugPremiumToggle: Boolean,
+    showDebugDateTools: Boolean,
     onBack: () -> Unit,
     onOpenAccounts: () -> Unit,
+    onOpenRecurringTransactions: () -> Unit,
     onDebugPremiumChange: (Boolean) -> Unit,
+    onDebugDateSelected: (String) -> Unit,
+    onClearDebugDate: () -> Unit,
+    onRunScheduledSync: () -> Unit,
     onExportBackup: (String) -> Unit,
     onImportBackup: (String) -> Unit,
     onMergeImport: () -> Unit,
@@ -84,6 +94,7 @@ fun SettingsScreen(
             onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
         )
         AccountManagementEntry(onOpenAccounts = onOpenAccounts)
+        RecurringManagementEntry(onOpenRecurringTransactions = onOpenRecurringTransactions)
         ReceiptSection(receiptImageCount = uiState.receiptImageCount)
         AppSettingsSection()
         PremiumSection(
@@ -96,6 +107,16 @@ fun SettingsScreen(
             versionCode = versionCode,
             packageName = packageName
         )
+        if (showDebugDateTools) {
+            DebugDateToolsSection(
+                currentDateIso = uiState.currentDateIso,
+                isUsingTestDate = uiState.isUsingTestDate,
+                message = uiState.debugDateMessage,
+                onDateSelected = onDebugDateSelected,
+                onClearDate = onClearDebugDate,
+                onRunScheduledSync = onRunScheduledSync
+            )
+        }
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
@@ -143,7 +164,7 @@ private fun PremiumSection(
             text = if (isPremium) {
                 "광고 없이 모든 프리미엄 기능을 사용할 수 있습니다."
             } else {
-                "광고 제거, PDF 무제한, 계좌/지갑 관리 기능을 사용할 수 있습니다."
+                "광고 제거, PDF 무제한, 계좌/지갑과 반복 거래 확장 기능을 사용할 수 있습니다."
             },
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
@@ -217,6 +238,7 @@ private fun PremiumDetailsDialog(
                 SectionLabel(text = "무료 제공")
                 BenefitText(text = "PDF 내보내기 ${PremiumPolicy.FreePdfTrialLimit}회 체험")
                 BenefitText(text = "계좌/지갑 ${PremiumPolicy.FreeAccountLimit}개 체험")
+                BenefitText(text = "반복 거래 ${PremiumPolicy.FreeRecurringRuleLimit}개 체험")
 
                 SectionLabel(text = "향후 제공 예정")
                 PremiumPolicy.PlannedPremiumFeatures.forEach { feature ->
@@ -288,6 +310,32 @@ private fun AccountManagementEntry(
 }
 
 @Composable
+private fun RecurringManagementEntry(
+    onOpenRecurringTransactions: () -> Unit
+) {
+    SettingsCard(title = "반복 거래 관리") {
+        Text(
+            text = "매월, 매분기, 매년 반복되는 수입/지출을 예정 거래로 미리 확인합니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF71717A)
+        )
+        OutlinedButton(
+            onClick = onOpenRecurringTransactions,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                text = "반복 거래 관리",
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+    }
+}
+
+@Composable
 private fun ReceiptSection(
     receiptImageCount: Int
 ) {
@@ -339,6 +387,119 @@ private fun AppInfoSection(
         InfoRow(label = "versionName", value = versionName)
         InfoRow(label = "versionCode", value = versionCode.toString())
         InfoRow(label = "package", value = packageName)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DebugDateToolsSection(
+    currentDateIso: String,
+    isUsingTestDate: Boolean,
+    message: String?,
+    onDateSelected: (String) -> Unit,
+    onClearDate: () -> Unit,
+    onRunScheduledSync: () -> Unit
+) {
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+
+    SettingsCard(title = "개발 도구") {
+        InfoRow(label = "현재 기준 날짜", value = currentDateIso)
+        InfoRow(
+            label = "날짜 모드",
+            value = if (isUsingTestDate) "테스트 날짜 사용 중" else "실제 날짜 사용 중"
+        )
+        Text(
+            text = "Debug 빌드에서만 표시됩니다. 테스트 날짜는 예정 거래 검증, 반복 거래 생성/전환, 계좌/지갑 현재월 계산 기준으로 사용됩니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF71717A)
+        )
+        message?.let {
+            Text(
+                text = it,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = Color(0xFFF4F4F5),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF18181B)
+            )
+        }
+        OutlinedButton(
+            onClick = { showDatePicker = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                text = "테스트 날짜 선택",
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+        OutlinedButton(
+            onClick = onClearDate,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                text = "실제 날짜로 되돌리기",
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+        Button(
+            onClick = onRunScheduledSync,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
+        ) {
+            Text(
+                text = "예정/반복 거래 동기화 실행",
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+
+    if (showDatePicker) {
+        val initialSelectedMillis = DateUtils.isoToPickerMillisOrNull(currentDateIso)
+            ?: DateUtils.isoToPickerMillisOrNull(DateUtils.todayIso())
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialSelectedMillis
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selectedMillis ->
+                            onDateSelected(DateUtils.pickerMillisToIso(selectedMillis))
+                        }
+                        showDatePicker = false
+                    },
+                    enabled = datePickerState.selectedDateMillis != null
+                ) {
+                    Text(text = "확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(text = "취소")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 }
 
@@ -434,9 +595,14 @@ private fun SettingsScreenPreview() {
                 versionCode = 1,
                 packageName = "com.sihwani.simpleledger",
                 showDebugPremiumToggle = true,
+                showDebugDateTools = true,
                 onBack = {},
                 onOpenAccounts = {},
+                onOpenRecurringTransactions = {},
                 onDebugPremiumChange = {},
+                onDebugDateSelected = {},
+                onClearDebugDate = {},
+                onRunScheduledSync = {},
                 onExportBackup = {},
                 onImportBackup = {},
                 onMergeImport = {},

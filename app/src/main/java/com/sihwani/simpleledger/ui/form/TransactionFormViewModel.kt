@@ -3,17 +3,26 @@ package com.sihwani.simpleledger.ui.form
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.sihwani.simpleledger.data.date.AppDateProvider
+import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.AccountRepository
+import com.sihwani.simpleledger.data.repository.RecurringTransactionRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
 import com.sihwani.simpleledger.domain.model.Account
+import com.sihwani.simpleledger.domain.model.RecurringRepeatType
+import com.sihwani.simpleledger.domain.model.RecurringTransaction
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionCategories
+import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
+import com.sihwani.simpleledger.domain.recurring.RecurringTransactionScheduler
 import com.sihwani.simpleledger.util.DateUtils
 import com.sihwani.simpleledger.util.MoneyInputFormatter
+import java.time.LocalDate
 import java.util.UUID
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -30,6 +39,13 @@ data class TransactionFormUiState(
     val memo: String = "",
     val selectedAccountId: String? = null,
     val accounts: List<Account> = emptyList(),
+    val transactionStatus: TransactionStatus = TransactionStatus.POSTED,
+    val useRecurringRule: Boolean = false,
+    val recurringRepeatType: RecurringRepeatType = RecurringRepeatType.MONTHLY,
+    val recurringEndDate: String = "",
+    val todayIso: String = DateUtils.todayIso(),
+    val isPremium: Boolean = false,
+    val activeRecurringRuleCount: Int = 0,
     val categories: List<String> = TransactionCategories.forType(type),
     val receiptImagePath: String? = null,
     val selectedReceiptImageUri: String? = null,
@@ -38,6 +54,7 @@ data class TransactionFormUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val notFound: Boolean = false,
+    val showRecurringPremiumDialog: Boolean = false,
     val errorMessage: String? = null,
     val saveCompleted: Boolean = false,
     val savedTransactionId: String? = null
@@ -55,19 +72,44 @@ data class TransactionFormUiState(
         }
 
     val showReceiptSection: Boolean
-        get() = type == TransactionType.EXPENSE
+        get() = type == TransactionType.EXPENSE && !useRecurringRule
+
+    val showRecurringSection: Boolean
+        get() = !isEditMode
+
+    val isRecurringRuleLocked: Boolean
+        get() = !isPremium && activeRecurringRuleCount >= PremiumPolicy.FreeRecurringRuleLimit
 
     val receiptPreviewSource: String?
         get() = selectedReceiptImageUri ?: receiptImagePath.takeUnless { isReceiptMarkedForDeletion }
 
     val accountOptions: List<Account>
         get() = accounts.filter { account -> account.isActive || account.id == selectedAccountId }
+
+    val datePolicyNotice: String?
+        get() {
+            val selectedDate = runCatching { LocalDate.parse(date) }.getOrNull() ?: return null
+            val today = runCatching { LocalDate.parse(todayIso) }.getOrNull() ?: return null
+            if (selectedDate.isAfter(today)) {
+                return null
+            }
+
+            return when {
+                useRecurringRule -> "반복 거래는 내일 이후 날짜부터 등록할 수 있습니다."
+                transactionStatus == TransactionStatus.SCHEDULED -> "예정 거래는 내일 이후 날짜로만 등록할 수 있습니다."
+                else -> null
+            }
+        }
 }
 
 class TransactionFormViewModel(
     private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
+    private val recurringTransactionRepository: RecurringTransactionRepository,
+    private val premiumRepository: PremiumRepository,
+    private val recurringTransactionScheduler: RecurringTransactionScheduler,
     private val receiptImageStorage: ReceiptImageStorage,
+    private val appDateProvider: AppDateProvider,
     type: TransactionType,
     private val transactionId: String? = null
 ) : ViewModel() {
@@ -75,6 +117,8 @@ class TransactionFormViewModel(
     private val _uiState = MutableStateFlow(
         TransactionFormUiState(
             type = type,
+            date = appDateProvider.todayIso(),
+            todayIso = appDateProvider.todayIso(),
             isEditMode = transactionId != null,
             isLoading = transactionId != null
         )
@@ -82,14 +126,33 @@ class TransactionFormViewModel(
     val uiState: StateFlow<TransactionFormUiState> = _uiState
 
     init {
-        observeAccounts()
+        observeFormDependencies()
         transactionId?.let { id -> loadTransaction(id) }
     }
 
-    private fun observeAccounts() {
-        accountRepository.observeAccounts()
-            .onEach { accounts ->
-                _uiState.update { it.copy(accounts = accounts) }
+    private fun observeFormDependencies() {
+        combine(
+            accountRepository.observeAccounts(),
+            premiumRepository.isPremium,
+            recurringTransactionRepository.observeActive(),
+            appDateProvider.state
+        ) { accounts, isPremium, activeRecurringRules, dateState ->
+            FormDependencies(
+                accounts = accounts,
+                isPremium = isPremium,
+                activeRecurringRuleCount = activeRecurringRules.size,
+                todayIso = dateState.currentDateIso
+            )
+        }
+            .onEach { dependencies ->
+                _uiState.update {
+                    it.copy(
+                        accounts = dependencies.accounts,
+                        isPremium = dependencies.isPremium,
+                        activeRecurringRuleCount = dependencies.activeRecurringRuleCount,
+                        todayIso = dependencies.todayIso
+                    )
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -119,6 +182,8 @@ class TransactionFormViewModel(
                     date = transaction.date,
                     memo = transaction.memo.orEmpty(),
                     selectedAccountId = transaction.accountId,
+                    transactionStatus = transaction.transactionStatus,
+                    useRecurringRule = false,
                     categories = TransactionCategories.forType(transaction.type),
                     receiptImagePath = transaction.receiptImagePath,
                     selectedReceiptImageUri = null,
@@ -164,6 +229,69 @@ class TransactionFormViewModel(
                 date = value,
                 errorMessage = null
             )
+        }
+    }
+
+    fun onTransactionStatusChange(status: TransactionStatus) {
+        _uiState.update {
+            it.copy(
+                transactionStatus = status,
+                errorMessage = null
+            )
+        }
+    }
+
+    fun onUseRecurringRuleChange(useRecurringRule: Boolean) {
+        val state = _uiState.value
+        if (state.isEditMode) {
+            return
+        }
+        if (useRecurringRule && state.isRecurringRuleLocked) {
+            _uiState.update {
+                it.copy(
+                    showRecurringPremiumDialog = true,
+                    useRecurringRule = false,
+                    errorMessage = null
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                useRecurringRule = useRecurringRule,
+                errorMessage = null
+            )
+        }
+    }
+
+    fun onRecurringRepeatTypeChange(repeatType: RecurringRepeatType) {
+        _uiState.update {
+            it.copy(
+                recurringRepeatType = repeatType,
+                errorMessage = null
+            )
+        }
+    }
+
+    fun onRecurringEndDateChange(value: String) {
+        _uiState.update {
+            it.copy(
+                recurringEndDate = value,
+                errorMessage = null
+            )
+        }
+    }
+
+    fun showRecurringPremiumInfo() {
+        _uiState.update {
+            it.copy(showRecurringPremiumDialog = true)
+        }
+    }
+
+    fun dismissRecurringPremiumInfo() {
+        _uiState.update {
+            it.copy(showRecurringPremiumDialog = false)
         }
     }
 
@@ -223,6 +351,9 @@ class TransactionFormViewModel(
         val title = state.title.trim()
         val memo = state.memo.trim().ifEmpty { null }
         val original = originalTransaction
+        val recurringEndDate = state.recurringEndDate.trim().ifEmpty { null }
+        val startDate = runCatching { LocalDate.parse(state.date) }.getOrNull()
+        val today = appDateProvider.today()
 
         val validationMessage = when {
             state.isEditMode && original == null -> "수정할 내역을 찾을 수 없습니다."
@@ -230,6 +361,23 @@ class TransactionFormViewModel(
             title.isEmpty() -> "${state.titleLabel}를 입력해주세요."
             state.category.isBlank() -> "카테고리를 선택해주세요."
             !DateUtils.isValidIsoDate(state.date) -> "날짜는 YYYY-MM-DD 형식으로 입력해주세요."
+            state.useRecurringRule && state.isRecurringRuleLocked -> "무료 체험 한도를 모두 사용했습니다."
+            state.useRecurringRule && startDate != null && !startDate.isAfter(today) -> {
+                "반복 거래는 내일 이후 날짜부터 등록할 수 있습니다."
+            }
+            !state.useRecurringRule &&
+                state.transactionStatus == TransactionStatus.SCHEDULED &&
+                startDate != null &&
+                !startDate.isAfter(today) -> {
+                "예정 거래는 내일 이후 날짜로만 등록할 수 있습니다."
+            }
+            state.useRecurringRule && recurringEndDate != null && !DateUtils.isValidIsoDate(recurringEndDate) -> {
+                "종료일은 YYYY-MM-DD 형식으로 입력해주세요."
+            }
+            state.useRecurringRule && recurringEndDate != null && startDate != null &&
+                LocalDate.parse(recurringEndDate).isBefore(startDate) -> {
+                "종료일은 시작 날짜보다 빠를 수 없습니다."
+            }
             else -> null
         }
 
@@ -252,6 +400,19 @@ class TransactionFormViewModel(
 
             runCatching {
                 val now = System.currentTimeMillis()
+                if (state.useRecurringRule) {
+                    saveRecurringRule(
+                        state = state,
+                        title = title,
+                        amount = validAmount,
+                        memo = memo,
+                        endDate = recurringEndDate,
+                        startDate = startDate ?: LocalDate.parse(state.date),
+                        now = now
+                    )
+                    return@runCatching null
+                }
+
                 val transactionId = original?.id ?: UUID.randomUUID().toString()
                 val selectedAccount = state.accounts.firstOrNull { account ->
                     account.id == state.selectedAccountId
@@ -264,7 +425,6 @@ class TransactionFormViewModel(
                         copiedReceiptPath = path
                     }
                 }
-
                 transactionRepository.upsert(
                     Transaction(
                         id = transactionId,
@@ -292,9 +452,13 @@ class TransactionFormViewModel(
                             selectedAccountId = state.selectedAccountId
                         ),
                         createdAt = original?.createdAt ?: now,
-                        updatedAt = if (state.isEditMode) now else null
+                        updatedAt = if (state.isEditMode) now else null,
+                        transactionStatus = state.transactionStatus,
+                        recurringRuleId = original?.recurringRuleId,
+                        recurringOccurrenceKey = original?.recurringOccurrenceKey
                     )
                 )
+                recurringTransactionScheduler.sync()
 
                 val originalReceiptPath = original?.receiptImagePath
                 if (originalReceiptPath != null && originalReceiptPath != receiptImagePath) {
@@ -322,6 +486,37 @@ class TransactionFormViewModel(
                 }
             }
         }
+    }
+
+    private suspend fun saveRecurringRule(
+        state: TransactionFormUiState,
+        title: String,
+        amount: Long,
+        memo: String?,
+        endDate: String?,
+        startDate: LocalDate,
+        now: Long
+    ) {
+        recurringTransactionRepository.upsert(
+            RecurringTransaction(
+                id = UUID.randomUUID().toString(),
+                title = title,
+                type = state.type,
+                amount = amount,
+                category = state.category,
+                accountId = state.selectedAccountId,
+                memo = memo,
+                repeatType = state.recurringRepeatType,
+                repeatDay = startDate.dayOfMonth,
+                repeatMonth = startDate.monthValue,
+                startDate = state.date,
+                endDate = endDate,
+                isActive = true,
+                createdAt = now,
+                updatedAt = null
+            )
+        )
+        recurringTransactionScheduler.sync()
     }
 
     private suspend fun resolveReceiptImagePath(
@@ -387,10 +582,21 @@ class TransactionFormViewModel(
     }
 }
 
+private data class FormDependencies(
+    val accounts: List<Account>,
+    val isPremium: Boolean,
+    val activeRecurringRuleCount: Int,
+    val todayIso: String
+)
+
 class TransactionFormViewModelFactory(
     private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
+    private val recurringTransactionRepository: RecurringTransactionRepository,
+    private val premiumRepository: PremiumRepository,
+    private val recurringTransactionScheduler: RecurringTransactionScheduler,
     private val receiptImageStorage: ReceiptImageStorage,
+    private val appDateProvider: AppDateProvider,
     private val type: TransactionType,
     private val transactionId: String? = null
 ) : ViewModelProvider.Factory {
@@ -400,7 +606,11 @@ class TransactionFormViewModelFactory(
             return TransactionFormViewModel(
                 transactionRepository = transactionRepository,
                 accountRepository = accountRepository,
+                recurringTransactionRepository = recurringTransactionRepository,
+                premiumRepository = premiumRepository,
+                recurringTransactionScheduler = recurringTransactionScheduler,
                 receiptImageStorage = receiptImageStorage,
+                appDateProvider = appDateProvider,
                 type = type,
                 transactionId = transactionId
             ) as T

@@ -7,6 +7,7 @@ object LedgerRoutes {
     const val History = "history"
     const val Settings = "settings"
     const val Accounts = "accounts"
+    const val RecurringTransactions = "recurring-transactions"
     const val TransactionDetail = "transaction-detail/{transactionId}"
     const val TransactionEdit = "transaction-edit/{transactionId}"
     const val TransactionIdArg = "transactionId"

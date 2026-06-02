@@ -14,5 +14,8 @@ data class Transaction(
     val accountSnapshotBankName: String? = null,
     val accountSnapshotIdentifier: String? = null,
     val createdAt: Long,
-    val updatedAt: Long?
+    val updatedAt: Long?,
+    val transactionStatus: TransactionStatus = TransactionStatus.POSTED,
+    val recurringRuleId: String? = null,
+    val recurringOccurrenceKey: String? = null
 )

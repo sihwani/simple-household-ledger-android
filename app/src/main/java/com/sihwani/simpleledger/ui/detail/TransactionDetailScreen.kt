@@ -48,6 +48,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.sihwani.simpleledger.domain.model.Transaction
+import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
 import com.sihwani.simpleledger.util.DateUtils
 import com.sihwani.simpleledger.util.MoneyFormatter
@@ -218,6 +219,22 @@ private fun TransactionDetailContent(
             }
 
             DetailRow(label = "날짜", value = DateUtils.formatFullDate(transaction.date))
+            DetailRow(label = "상태", value = transactionStatusLabel(transaction))
+            recurringDescription(transaction)?.let { description ->
+                Text(
+                    text = description,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = Color(0xFFF4F4F5),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF71717A)
+                )
+            }
             DetailRow(label = "계좌/지갑", value = accountLabel ?: "선택 안 함")
             DetailRow(label = "카테고리", value = transaction.category)
             DetailRow(label = "메모", value = transaction.memo?.takeIf { it.isNotBlank() } ?: "메모 없음")
@@ -443,6 +460,29 @@ private fun typeLabel(type: TransactionType): String {
     return when (type) {
         TransactionType.INCOME -> "수입"
         TransactionType.EXPENSE -> "지출"
+    }
+}
+
+private fun transactionStatusLabel(transaction: Transaction): String {
+    return when (transaction.transactionStatus) {
+        TransactionStatus.POSTED -> "실제 반영 거래"
+        TransactionStatus.SCHEDULED -> "예정 거래"
+    }
+}
+
+private fun recurringDescription(transaction: Transaction): String? {
+    if (transaction.recurringRuleId == null) {
+        return if (transaction.transactionStatus == TransactionStatus.SCHEDULED) {
+            "지정한 날짜가 되면 실제 거래로 반영됩니다."
+        } else {
+            null
+        }
+    }
+
+    return if (transaction.transactionStatus == TransactionStatus.SCHEDULED) {
+        "이 거래는 반복 거래로 생성된 예정 거래입니다. 날짜가 도래하면 실제 반영 거래로 전환됩니다. 수정/삭제는 이 거래에만 적용됩니다."
+    } else {
+        "이 거래는 반복 거래로 생성된 내역입니다. 수정 내용은 이 거래에만 적용되며 반복 거래 설정은 변경되지 않습니다."
     }
 }
 

@@ -11,16 +11,22 @@ import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.sihwani.simpleledger.data.ads.MobileAdsInitializer
 import com.sihwani.simpleledger.data.backup.BackupFileManager
+import com.sihwani.simpleledger.data.date.AppDateProvider
 import com.sihwani.simpleledger.data.local.LedgerDatabase
 import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.AccountRepository
+import com.sihwani.simpleledger.data.repository.RecurringTransactionRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
+import com.sihwani.simpleledger.domain.recurring.RecurringTransactionScheduler
 import com.sihwani.simpleledger.ui.navigation.LedgerNavHost
 import com.sihwani.simpleledger.ui.theme.LedgerTheme
 
 class MainActivity : ComponentActivity() {
+    private val appDateProvider: AppDateProvider by lazy {
+        AppDateProvider(applicationContext)
+    }
     private val transactionRepository: TransactionRepository by lazy {
         TransactionRepository(
             transactionDao = LedgerDatabase
@@ -35,6 +41,13 @@ class MainActivity : ComponentActivity() {
                 .accountDao()
         )
     }
+    private val recurringTransactionRepository: RecurringTransactionRepository by lazy {
+        RecurringTransactionRepository(
+            recurringTransactionDao = LedgerDatabase
+                .getInstance(applicationContext)
+                .recurringTransactionDao()
+        )
+    }
     private val receiptImageStorage: ReceiptImageStorage by lazy {
         ReceiptImageStorage(applicationContext)
     }
@@ -47,6 +60,14 @@ class MainActivity : ComponentActivity() {
     private val pdfExportManager: PdfExportManager by lazy {
         PdfExportManager(applicationContext)
     }
+    private val recurringTransactionScheduler: RecurringTransactionScheduler by lazy {
+        RecurringTransactionScheduler(
+            recurringTransactionRepository = recurringTransactionRepository,
+            transactionRepository = transactionRepository,
+            accountRepository = accountRepository,
+            appDateProvider = appDateProvider
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -56,10 +77,13 @@ class MainActivity : ComponentActivity() {
             HannunLedgerApp(
                 transactionRepository = transactionRepository,
                 accountRepository = accountRepository,
+                recurringTransactionRepository = recurringTransactionRepository,
                 receiptImageStorage = receiptImageStorage,
                 backupFileManager = backupFileManager,
                 premiumRepository = premiumRepository,
-                pdfExportManager = pdfExportManager
+                pdfExportManager = pdfExportManager,
+                appDateProvider = appDateProvider,
+                recurringTransactionScheduler = recurringTransactionScheduler
             )
         }
     }
@@ -69,10 +93,13 @@ class MainActivity : ComponentActivity() {
 private fun HannunLedgerApp(
     transactionRepository: TransactionRepository,
     accountRepository: AccountRepository,
+    recurringTransactionRepository: RecurringTransactionRepository,
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
     premiumRepository: PremiumRepository,
-    pdfExportManager: PdfExportManager
+    pdfExportManager: PdfExportManager,
+    appDateProvider: AppDateProvider,
+    recurringTransactionScheduler: RecurringTransactionScheduler
 ) {
     LedgerTheme {
         Surface(
@@ -82,10 +109,13 @@ private fun HannunLedgerApp(
             LedgerNavHost(
                 transactionRepository = transactionRepository,
                 accountRepository = accountRepository,
+                recurringTransactionRepository = recurringTransactionRepository,
                 receiptImageStorage = receiptImageStorage,
                 backupFileManager = backupFileManager,
                 premiumRepository = premiumRepository,
-                pdfExportManager = pdfExportManager
+                pdfExportManager = pdfExportManager,
+                appDateProvider = appDateProvider,
+                recurringTransactionScheduler = recurringTransactionScheduler
             )
         }
     }

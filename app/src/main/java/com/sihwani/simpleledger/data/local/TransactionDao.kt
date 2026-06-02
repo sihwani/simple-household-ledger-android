@@ -46,6 +46,17 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(transactions: List<TransactionEntity>)
 
+    @Query(
+        """
+        UPDATE transactions
+        SET transactionStatus = 'posted',
+            updatedAt = :updatedAt
+        WHERE transactionStatus = 'scheduled'
+            AND date <= :todayIso
+        """
+    )
+    suspend fun markScheduledDueAsPosted(todayIso: String, updatedAt: Long)
+
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteById(id: String)
 

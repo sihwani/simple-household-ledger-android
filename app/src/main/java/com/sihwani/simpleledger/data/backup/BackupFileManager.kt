@@ -3,6 +3,8 @@ package com.sihwani.simpleledger.data.backup
 import android.content.Context
 import android.net.Uri
 import com.sihwani.simpleledger.domain.model.Account
+import com.sihwani.simpleledger.domain.model.RecurringSkippedOccurrence
+import com.sihwani.simpleledger.domain.model.RecurringTransaction
 import com.sihwani.simpleledger.domain.model.Transaction
 import java.io.IOException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -16,12 +18,16 @@ class BackupFileManager(
     suspend fun writeBackup(
         uriString: String,
         transactions: List<Transaction>,
-        accounts: List<Account>
+        accounts: List<Account>,
+        recurringTransactions: List<RecurringTransaction> = emptyList(),
+        recurringSkippedOccurrences: List<RecurringSkippedOccurrence> = emptyList()
     ) = withContext(ioDispatcher) {
         val uri = Uri.parse(uriString)
         val jsonText = BackupJson.encode(
             transactions = transactions,
-            accounts = accounts
+            accounts = accounts,
+            recurringTransactions = recurringTransactions,
+            recurringSkippedOccurrences = recurringSkippedOccurrences
         )
 
         context.contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->

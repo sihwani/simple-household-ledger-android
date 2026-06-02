@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sihwani.simpleledger.domain.model.MonthlySummary
 import com.sihwani.simpleledger.domain.model.Transaction
+import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
 import com.sihwani.simpleledger.ui.ads.TopBannerAd
 import com.sihwani.simpleledger.util.DateUtils
@@ -459,6 +460,30 @@ private fun AccountSummaryCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                Text(
+                    text = "${accountSummary.scheduledMonthLabel} 예정 수입 +${MoneyFormatter.formatWon(accountSummary.scheduledIncome)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF047857),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${accountSummary.scheduledMonthLabel} 예정 지출 -${MoneyFormatter.formatWon(accountSummary.scheduledExpense)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFBE123C),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${accountSummary.scheduledMonthLabel} 말 예상 잔액 ${MoneyFormatter.formatWon(accountSummary.expectedMonthEndBalance)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF18181B),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     accountSummary.previewAccounts.forEach { account ->
@@ -655,6 +680,11 @@ private fun HomeTransactionCard(
     } else {
         Color(0xFFBE123C)
     }
+    val amountText = if (transaction.transactionStatus == TransactionStatus.SCHEDULED) {
+        "${MoneyFormatter.formatWon(transaction.amount)} · 예정"
+    } else {
+        MoneyFormatter.formatWon(transaction.amount)
+    }
 
     Card(
         modifier = Modifier
@@ -683,7 +713,7 @@ private fun HomeTransactionCard(
                 color = Color(0xFF18181B)
             )
             Text(
-                text = MoneyFormatter.formatWon(transaction.amount),
+                text = amountText,
                 modifier = Modifier.padding(top = 6.dp),
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.ExtraBold,
@@ -759,14 +789,20 @@ private fun HomeScreenPreview() {
                             HomeAccountBalanceItem(
                                 id = "account-1",
                                 name = "생활통장",
-                                calculatedBalance = 1_150_000L
+                                calculatedBalance = 1_150_000L,
+                                expectedMonthEndBalance = 1_030_000L
                             ),
                             HomeAccountBalanceItem(
                                 id = "account-2",
                                 name = "월급통장",
-                                calculatedBalance = 2_000_000L
+                                calculatedBalance = 2_000_000L,
+                                expectedMonthEndBalance = 2_000_000L
                             )
                         ),
+                        scheduledIncome = 0L,
+                        scheduledExpense = 120_000L,
+                        expectedMonthEndBalance = 3_130_000L,
+                        scheduledMonthLabel = "2026년 6월",
                         hiddenAccountCount = 1,
                         hasActiveAccounts = true
                     ),

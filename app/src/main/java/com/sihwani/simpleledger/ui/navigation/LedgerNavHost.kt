@@ -13,12 +13,15 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sihwani.simpleledger.BuildConfig
 import com.sihwani.simpleledger.data.backup.BackupFileManager
+import com.sihwani.simpleledger.data.date.AppDateProvider
 import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.AccountRepository
+import com.sihwani.simpleledger.data.repository.RecurringTransactionRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
 import com.sihwani.simpleledger.domain.model.TransactionType
+import com.sihwani.simpleledger.domain.recurring.RecurringTransactionScheduler
 import com.sihwani.simpleledger.ui.account.AccountManagementScreen
 import com.sihwani.simpleledger.ui.account.AccountManagementViewModel
 import com.sihwani.simpleledger.ui.account.AccountManagementViewModelFactory
@@ -36,6 +39,9 @@ import com.sihwani.simpleledger.ui.history.HistoryViewModelFactory
 import com.sihwani.simpleledger.ui.home.HomeScreen
 import com.sihwani.simpleledger.ui.home.HomeViewModel
 import com.sihwani.simpleledger.ui.home.HomeViewModelFactory
+import com.sihwani.simpleledger.ui.recurring.RecurringTransactionScreen
+import com.sihwani.simpleledger.ui.recurring.RecurringTransactionViewModel
+import com.sihwani.simpleledger.ui.recurring.RecurringTransactionViewModelFactory
 import com.sihwani.simpleledger.ui.settings.SettingsScreen
 import com.sihwani.simpleledger.ui.settings.SettingsViewModel
 import com.sihwani.simpleledger.ui.settings.SettingsViewModelFactory
@@ -44,10 +50,13 @@ import com.sihwani.simpleledger.ui.settings.SettingsViewModelFactory
 fun LedgerNavHost(
     transactionRepository: TransactionRepository,
     accountRepository: AccountRepository,
+    recurringTransactionRepository: RecurringTransactionRepository,
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
     premiumRepository: PremiumRepository,
     pdfExportManager: PdfExportManager,
+    appDateProvider: AppDateProvider,
+    recurringTransactionScheduler: RecurringTransactionScheduler,
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
@@ -61,7 +70,9 @@ fun LedgerNavHost(
             val homeViewModel: HomeViewModel = viewModel(
                 factory = HomeViewModelFactory(
                     transactionRepository = transactionRepository,
-                    accountRepository = accountRepository
+                    accountRepository = accountRepository,
+                    appDateProvider = appDateProvider,
+                    recurringTransactionScheduler = recurringTransactionScheduler
                 )
             )
             val uiState by homeViewModel.uiState.collectAsState()
@@ -94,7 +105,11 @@ fun LedgerNavHost(
                 factory = TransactionFormViewModelFactory(
                     transactionRepository = transactionRepository,
                     accountRepository = accountRepository,
+                    recurringTransactionRepository = recurringTransactionRepository,
+                    premiumRepository = premiumRepository,
+                    recurringTransactionScheduler = recurringTransactionScheduler,
                     receiptImageStorage = receiptImageStorage,
+                    appDateProvider = appDateProvider,
                     type = TransactionType.INCOME
                 )
             )
@@ -106,6 +121,12 @@ fun LedgerNavHost(
                 onTitleChange = formViewModel::onTitleChange,
                 onCategoryChange = formViewModel::onCategoryChange,
                 onDateChange = formViewModel::onDateChange,
+                onTransactionStatusChange = formViewModel::onTransactionStatusChange,
+                onUseRecurringRuleChange = formViewModel::onUseRecurringRuleChange,
+                onRecurringRepeatTypeChange = formViewModel::onRecurringRepeatTypeChange,
+                onRecurringEndDateChange = formViewModel::onRecurringEndDateChange,
+                onShowRecurringPremiumInfo = formViewModel::showRecurringPremiumInfo,
+                onDismissRecurringPremiumInfo = formViewModel::dismissRecurringPremiumInfo,
                 onMemoChange = formViewModel::onMemoChange,
                 onAccountChange = formViewModel::onAccountChange,
                 onReceiptImageSelected = formViewModel::onReceiptImageSelected,
@@ -126,7 +147,11 @@ fun LedgerNavHost(
                 factory = TransactionFormViewModelFactory(
                     transactionRepository = transactionRepository,
                     accountRepository = accountRepository,
+                    recurringTransactionRepository = recurringTransactionRepository,
+                    premiumRepository = premiumRepository,
+                    recurringTransactionScheduler = recurringTransactionScheduler,
                     receiptImageStorage = receiptImageStorage,
+                    appDateProvider = appDateProvider,
                     type = TransactionType.EXPENSE
                 )
             )
@@ -138,6 +163,12 @@ fun LedgerNavHost(
                 onTitleChange = formViewModel::onTitleChange,
                 onCategoryChange = formViewModel::onCategoryChange,
                 onDateChange = formViewModel::onDateChange,
+                onTransactionStatusChange = formViewModel::onTransactionStatusChange,
+                onUseRecurringRuleChange = formViewModel::onUseRecurringRuleChange,
+                onRecurringRepeatTypeChange = formViewModel::onRecurringRepeatTypeChange,
+                onRecurringEndDateChange = formViewModel::onRecurringEndDateChange,
+                onShowRecurringPremiumInfo = formViewModel::showRecurringPremiumInfo,
+                onDismissRecurringPremiumInfo = formViewModel::dismissRecurringPremiumInfo,
                 onMemoChange = formViewModel::onMemoChange,
                 onAccountChange = formViewModel::onAccountChange,
                 onReceiptImageSelected = formViewModel::onReceiptImageSelected,
@@ -158,7 +189,8 @@ fun LedgerNavHost(
                 factory = HistoryViewModelFactory(
                     transactionRepository = transactionRepository,
                     premiumRepository = premiumRepository,
-                    pdfExportManager = pdfExportManager
+                    pdfExportManager = pdfExportManager,
+                    appDateProvider = appDateProvider
                 )
             )
             val uiState by historyViewModel.uiState.collectAsState()
@@ -183,7 +215,9 @@ fun LedgerNavHost(
             val settingsViewModel: SettingsViewModel = viewModel(
                 factory = SettingsViewModelFactory(
                     transactionRepository = transactionRepository,
-                    premiumRepository = premiumRepository
+                    premiumRepository = premiumRepository,
+                    appDateProvider = appDateProvider,
+                    recurringTransactionScheduler = recurringTransactionScheduler
                 )
             )
             val settingsUiState by settingsViewModel.uiState.collectAsState()
@@ -191,6 +225,8 @@ fun LedgerNavHost(
                 factory = DataManagementViewModelFactory(
                     transactionRepository = transactionRepository,
                     accountRepository = accountRepository,
+                    recurringTransactionRepository = recurringTransactionRepository,
+                    recurringTransactionScheduler = recurringTransactionScheduler,
                     backupFileManager = backupFileManager,
                     receiptImageStorage = receiptImageStorage
                 )
@@ -202,11 +238,18 @@ fun LedgerNavHost(
                 dataManagementUiState = dataManagementUiState,
                 onBack = { navController.popBackStack() },
                 onOpenAccounts = { navController.navigate(LedgerRoutes.Accounts) },
+                onOpenRecurringTransactions = {
+                    navController.navigate(LedgerRoutes.RecurringTransactions)
+                },
                 versionName = BuildConfig.VERSION_NAME,
                 versionCode = BuildConfig.VERSION_CODE,
                 packageName = BuildConfig.APPLICATION_ID,
                 showDebugPremiumToggle = BuildConfig.DEBUG,
+                showDebugDateTools = BuildConfig.DEBUG,
                 onDebugPremiumChange = settingsViewModel::setPremiumForDebug,
+                onDebugDateSelected = settingsViewModel::setTestDateForDebug,
+                onClearDebugDate = settingsViewModel::clearTestDateForDebug,
+                onRunScheduledSync = settingsViewModel::runScheduledSyncForDebug,
                 onExportBackup = dataManagementViewModel::exportBackup,
                 onImportBackup = dataManagementViewModel::importBackup,
                 onMergeImport = dataManagementViewModel::mergePendingImport,
@@ -225,7 +268,9 @@ fun LedgerNavHost(
                 factory = AccountManagementViewModelFactory(
                     accountRepository = accountRepository,
                     transactionRepository = transactionRepository,
-                    premiumRepository = premiumRepository
+                    recurringTransactionRepository = recurringTransactionRepository,
+                    premiumRepository = premiumRepository,
+                    appDateProvider = appDateProvider
                 )
             )
             val uiState by accountManagementViewModel.uiState.collectAsState()
@@ -257,6 +302,48 @@ fun LedgerNavHost(
             )
         }
 
+        composable(LedgerRoutes.RecurringTransactions) {
+            val recurringViewModel: RecurringTransactionViewModel = viewModel(
+                factory = RecurringTransactionViewModelFactory(
+                    recurringTransactionRepository = recurringTransactionRepository,
+                    accountRepository = accountRepository,
+                    premiumRepository = premiumRepository,
+                    scheduler = recurringTransactionScheduler,
+                    appDateProvider = appDateProvider
+                )
+            )
+            val uiState by recurringViewModel.uiState.collectAsState()
+
+            RecurringTransactionScreen(
+                uiState = uiState,
+                onBack = { navController.popBackStack() },
+                onAddRule = recurringViewModel::requestAddRule,
+                onEditRule = recurringViewModel::requestEditRule,
+                onRequestDeactivate = recurringViewModel::requestDeactivate,
+                onDismissDeactivate = recurringViewModel::dismissDeactivateDialog,
+                onConfirmDeactivate = recurringViewModel::confirmDeactivate,
+                onToggleInactiveRules = recurringViewModel::toggleInactiveRules,
+                onRequestReactivate = recurringViewModel::requestReactivate,
+                onDismissReactivate = recurringViewModel::dismissReactivateDialog,
+                onConfirmReactivate = recurringViewModel::confirmReactivate,
+                onRequestDelete = recurringViewModel::requestDelete,
+                onDismissDelete = recurringViewModel::dismissDeleteDialog,
+                onConfirmDelete = recurringViewModel::confirmDelete,
+                onDismissPremiumDialog = recurringViewModel::dismissPremiumDialog,
+                onDismissForm = recurringViewModel::dismissForm,
+                onTypeChange = recurringViewModel::onTypeChange,
+                onAmountChange = recurringViewModel::onAmountChange,
+                onTitleChange = recurringViewModel::onTitleChange,
+                onCategoryChange = recurringViewModel::onCategoryChange,
+                onAccountChange = recurringViewModel::onAccountChange,
+                onRepeatTypeChange = recurringViewModel::onRepeatTypeChange,
+                onStartDateChange = recurringViewModel::onStartDateChange,
+                onEndDateChange = recurringViewModel::onEndDateChange,
+                onMemoChange = recurringViewModel::onMemoChange,
+                onSaveRule = recurringViewModel::saveRule
+            )
+        }
+
         composable(
             route = LedgerRoutes.TransactionDetail,
             arguments = listOf(
@@ -272,6 +359,7 @@ fun LedgerNavHost(
                 factory = TransactionDetailViewModelFactory(
                     transactionRepository = transactionRepository,
                     accountRepository = accountRepository,
+                    recurringTransactionRepository = recurringTransactionRepository,
                     receiptImageStorage = receiptImageStorage,
                     transactionId = transactionId
                 )
@@ -312,7 +400,11 @@ fun LedgerNavHost(
                 factory = TransactionFormViewModelFactory(
                     transactionRepository = transactionRepository,
                     accountRepository = accountRepository,
+                    recurringTransactionRepository = recurringTransactionRepository,
+                    premiumRepository = premiumRepository,
+                    recurringTransactionScheduler = recurringTransactionScheduler,
                     receiptImageStorage = receiptImageStorage,
+                    appDateProvider = appDateProvider,
                     type = TransactionType.EXPENSE,
                     transactionId = transactionId
                 )
@@ -325,6 +417,12 @@ fun LedgerNavHost(
                 onTitleChange = formViewModel::onTitleChange,
                 onCategoryChange = formViewModel::onCategoryChange,
                 onDateChange = formViewModel::onDateChange,
+                onTransactionStatusChange = formViewModel::onTransactionStatusChange,
+                onUseRecurringRuleChange = formViewModel::onUseRecurringRuleChange,
+                onRecurringRepeatTypeChange = formViewModel::onRecurringRepeatTypeChange,
+                onRecurringEndDateChange = formViewModel::onRecurringEndDateChange,
+                onShowRecurringPremiumInfo = formViewModel::showRecurringPremiumInfo,
+                onDismissRecurringPremiumInfo = formViewModel::dismissRecurringPremiumInfo,
                 onMemoChange = formViewModel::onMemoChange,
                 onAccountChange = formViewModel::onAccountChange,
                 onReceiptImageSelected = formViewModel::onReceiptImageSelected,

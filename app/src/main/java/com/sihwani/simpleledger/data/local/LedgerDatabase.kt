@@ -8,13 +8,19 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TransactionEntity::class, AccountEntity::class],
-    version = 3,
+    entities = [
+        TransactionEntity::class,
+        AccountEntity::class,
+        RecurringTransactionEntity::class,
+        RecurringSkippedOccurrenceEntity::class
+    ],
+    version = 4,
     exportSchema = true
 )
 abstract class LedgerDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun accountDao(): AccountDao
+    abstract fun recurringTransactionDao(): RecurringTransactionDao
 
     companion object {
         private const val DATABASE_NAME = "hannun-ledger.db"
@@ -95,6 +101,57 @@ abstract class LedgerDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN transactionStatus TEXT NOT NULL DEFAULT 'posted'")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN recurringRuleId TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN recurringOccurrenceKey TEXT")
+                db.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS index_transactions_recurringRuleId_recurringOccurrenceKey
+                    ON transactions(recurringRuleId, recurringOccurrenceKey)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS recurring_transactions (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        amount INTEGER NOT NULL,
+                        category TEXT NOT NULL,
+                        accountId TEXT,
+                        memo TEXT,
+                        repeatType TEXT NOT NULL,
+                        repeatDay INTEGER,
+                        repeatMonth INTEGER,
+                        startDate TEXT NOT NULL,
+                        endDate TEXT,
+                        isActive INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS recurring_skipped_occurrences (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        recurringRuleId TEXT NOT NULL,
+                        recurringOccurrenceKey TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS index_recurring_skipped_occurrences_recurringRuleId_recurringOccurrenceKey
+                    ON recurring_skipped_occurrences(recurringRuleId, recurringOccurrenceKey)
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var instance: LedgerDatabase? = null
 
@@ -105,7 +162,7 @@ abstract class LedgerDatabase : RoomDatabase() {
                     LedgerDatabase::class.java,
                     DATABASE_NAME
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }
