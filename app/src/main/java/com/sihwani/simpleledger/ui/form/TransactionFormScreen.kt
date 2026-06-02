@@ -49,7 +49,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.sihwani.simpleledger.domain.model.Account
 import com.sihwani.simpleledger.domain.model.TransactionType
+import com.sihwani.simpleledger.util.AccountFormatter
 import com.sihwani.simpleledger.util.DateUtils
 import java.io.File
 
@@ -62,6 +64,7 @@ fun TransactionFormScreen(
     onCategoryChange: (String) -> Unit,
     onDateChange: (String) -> Unit,
     onMemoChange: (String) -> Unit,
+    onAccountChange: (String?) -> Unit,
     onReceiptImageSelected: (String) -> Unit,
     onReceiptImageRemove: () -> Unit,
     onSave: () -> Unit,
@@ -180,6 +183,12 @@ fun TransactionFormScreen(
             }
         }
 
+        AccountSelectionSection(
+            accounts = uiState.accountOptions,
+            selectedAccountId = uiState.selectedAccountId,
+            onAccountChange = onAccountChange
+        )
+
         OutlinedTextField(
             value = uiState.date,
             onValueChange = onDateChange,
@@ -260,6 +269,63 @@ fun TransactionFormScreen(
                 showDatePicker = false
             }
         )
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun AccountSelectionSection(
+    accounts: List<Account>,
+    selectedAccountId: String?,
+    onAccountChange: (String?) -> Unit
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "계좌/지갑",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF18181B)
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = selectedAccountId == null,
+                onClick = { onAccountChange(null) },
+                label = {
+                    Text(
+                        text = "선택 안 함",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            )
+            accounts.forEach { account ->
+                FilterChip(
+                    selected = selectedAccountId == account.id,
+                    onClick = { onAccountChange(account.id) },
+                    label = {
+                        Text(
+                            text = AccountFormatter.displayName(account),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                )
+            }
+        }
+        if (accounts.isEmpty()) {
+            Text(
+                text = "설정에서 계좌/지갑을 추가하면 거래와 연결할 수 있습니다.",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF71717A)
+            )
+        }
     }
 }
 
@@ -412,6 +478,7 @@ private fun TransactionFormScreenPreview() {
                 onCategoryChange = {},
                 onDateChange = {},
                 onMemoChange = {},
+                onAccountChange = {},
                 onReceiptImageSelected = {},
                 onReceiptImageRemove = {},
                 onSave = {},

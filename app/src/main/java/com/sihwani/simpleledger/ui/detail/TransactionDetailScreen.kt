@@ -81,6 +81,7 @@ fun TransactionDetailScreen(
             uiState.transaction != null -> {
                 TransactionDetailContent(
                     transaction = uiState.transaction,
+                    accountLabel = uiState.accountLabel,
                     onEdit = onEdit,
                     onDeleteClick = onDeleteClick,
                     onReceiptClick = { receiptPath -> enlargedReceiptPath = receiptPath }
@@ -171,6 +172,7 @@ private fun DetailHeader(
 @Composable
 private fun TransactionDetailContent(
     transaction: Transaction,
+    accountLabel: String?,
     onEdit: () -> Unit,
     onDeleteClick: () -> Unit,
     onReceiptClick: (String) -> Unit
@@ -216,6 +218,7 @@ private fun TransactionDetailContent(
             }
 
             DetailRow(label = "날짜", value = DateUtils.formatFullDate(transaction.date))
+            DetailRow(label = "계좌/지갑", value = accountLabel ?: "선택 안 함")
             DetailRow(label = "카테고리", value = transaction.category)
             DetailRow(label = "메모", value = transaction.memo?.takeIf { it.isNotBlank() } ?: "메모 없음")
 

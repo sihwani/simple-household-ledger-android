@@ -15,9 +15,13 @@ import com.sihwani.simpleledger.BuildConfig
 import com.sihwani.simpleledger.data.backup.BackupFileManager
 import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.premium.PremiumRepository
+import com.sihwani.simpleledger.data.repository.AccountRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
 import com.sihwani.simpleledger.domain.model.TransactionType
+import com.sihwani.simpleledger.ui.account.AccountManagementScreen
+import com.sihwani.simpleledger.ui.account.AccountManagementViewModel
+import com.sihwani.simpleledger.ui.account.AccountManagementViewModelFactory
 import com.sihwani.simpleledger.ui.detail.TransactionDetailScreen
 import com.sihwani.simpleledger.ui.detail.TransactionDetailViewModel
 import com.sihwani.simpleledger.ui.detail.TransactionDetailViewModelFactory
@@ -39,6 +43,7 @@ import com.sihwani.simpleledger.ui.settings.SettingsViewModelFactory
 @Composable
 fun LedgerNavHost(
     transactionRepository: TransactionRepository,
+    accountRepository: AccountRepository,
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
     premiumRepository: PremiumRepository,
@@ -86,6 +91,7 @@ fun LedgerNavHost(
             val formViewModel: TransactionFormViewModel = viewModel(
                 factory = TransactionFormViewModelFactory(
                     transactionRepository = transactionRepository,
+                    accountRepository = accountRepository,
                     receiptImageStorage = receiptImageStorage,
                     type = TransactionType.INCOME
                 )
@@ -99,6 +105,7 @@ fun LedgerNavHost(
                 onCategoryChange = formViewModel::onCategoryChange,
                 onDateChange = formViewModel::onDateChange,
                 onMemoChange = formViewModel::onMemoChange,
+                onAccountChange = formViewModel::onAccountChange,
                 onReceiptImageSelected = formViewModel::onReceiptImageSelected,
                 onReceiptImageRemove = formViewModel::onReceiptImageRemove,
                 onSave = formViewModel::save,
@@ -116,6 +123,7 @@ fun LedgerNavHost(
             val formViewModel: TransactionFormViewModel = viewModel(
                 factory = TransactionFormViewModelFactory(
                     transactionRepository = transactionRepository,
+                    accountRepository = accountRepository,
                     receiptImageStorage = receiptImageStorage,
                     type = TransactionType.EXPENSE
                 )
@@ -129,6 +137,7 @@ fun LedgerNavHost(
                 onCategoryChange = formViewModel::onCategoryChange,
                 onDateChange = formViewModel::onDateChange,
                 onMemoChange = formViewModel::onMemoChange,
+                onAccountChange = formViewModel::onAccountChange,
                 onReceiptImageSelected = formViewModel::onReceiptImageSelected,
                 onReceiptImageRemove = formViewModel::onReceiptImageRemove,
                 onSave = formViewModel::save,
@@ -179,6 +188,7 @@ fun LedgerNavHost(
             val dataManagementViewModel: DataManagementViewModel = viewModel(
                 factory = DataManagementViewModelFactory(
                     transactionRepository = transactionRepository,
+                    accountRepository = accountRepository,
                     backupFileManager = backupFileManager,
                     receiptImageStorage = receiptImageStorage
                 )
@@ -189,6 +199,7 @@ fun LedgerNavHost(
                 uiState = settingsUiState,
                 dataManagementUiState = dataManagementUiState,
                 onBack = { navController.popBackStack() },
+                onOpenAccounts = { navController.navigate(LedgerRoutes.Accounts) },
                 versionName = BuildConfig.VERSION_NAME,
                 versionCode = BuildConfig.VERSION_CODE,
                 packageName = BuildConfig.APPLICATION_ID,
@@ -207,6 +218,43 @@ fun LedgerNavHost(
             )
         }
 
+        composable(LedgerRoutes.Accounts) {
+            val accountManagementViewModel: AccountManagementViewModel = viewModel(
+                factory = AccountManagementViewModelFactory(
+                    accountRepository = accountRepository,
+                    transactionRepository = transactionRepository,
+                    premiumRepository = premiumRepository
+                )
+            )
+            val uiState by accountManagementViewModel.uiState.collectAsState()
+
+            AccountManagementScreen(
+                uiState = uiState,
+                onBack = { navController.popBackStack() },
+                onAddAccount = accountManagementViewModel::requestAddAccount,
+                onEditAccount = accountManagementViewModel::requestEditAccount,
+                onRequestDeactivate = accountManagementViewModel::requestDeactivate,
+                onDismissDeactivate = accountManagementViewModel::dismissDeactivateDialog,
+                onConfirmDeactivate = accountManagementViewModel::confirmDeactivate,
+                onToggleInactiveAccounts = accountManagementViewModel::toggleInactiveAccounts,
+                onRequestReactivate = accountManagementViewModel::requestReactivate,
+                onDismissReactivate = accountManagementViewModel::dismissReactivateDialog,
+                onConfirmReactivate = accountManagementViewModel::confirmReactivate,
+                onRequestDelete = accountManagementViewModel::requestDelete,
+                onDismissDelete = accountManagementViewModel::dismissDeleteDialog,
+                onConfirmDelete = accountManagementViewModel::confirmDelete,
+                onDismissPremiumDialog = accountManagementViewModel::dismissPremiumDialog,
+                onDismissForm = accountManagementViewModel::dismissForm,
+                onNameChange = accountManagementViewModel::onNameChange,
+                onBankNameChange = accountManagementViewModel::onBankNameChange,
+                onIdentifierChange = accountManagementViewModel::onIdentifierChange,
+                onBaseBalanceChange = accountManagementViewModel::onBaseBalanceChange,
+                onBaseDateChange = accountManagementViewModel::onBaseDateChange,
+                onMemoChange = accountManagementViewModel::onMemoChange,
+                onSaveAccount = accountManagementViewModel::saveAccount
+            )
+        }
+
         composable(
             route = LedgerRoutes.TransactionDetail,
             arguments = listOf(
@@ -221,6 +269,7 @@ fun LedgerNavHost(
             val detailViewModel: TransactionDetailViewModel = viewModel(
                 factory = TransactionDetailViewModelFactory(
                     transactionRepository = transactionRepository,
+                    accountRepository = accountRepository,
                     receiptImageStorage = receiptImageStorage,
                     transactionId = transactionId
                 )
@@ -260,6 +309,7 @@ fun LedgerNavHost(
             val formViewModel: TransactionFormViewModel = viewModel(
                 factory = TransactionFormViewModelFactory(
                     transactionRepository = transactionRepository,
+                    accountRepository = accountRepository,
                     receiptImageStorage = receiptImageStorage,
                     type = TransactionType.EXPENSE,
                     transactionId = transactionId
@@ -274,6 +324,7 @@ fun LedgerNavHost(
                 onCategoryChange = formViewModel::onCategoryChange,
                 onDateChange = formViewModel::onDateChange,
                 onMemoChange = formViewModel::onMemoChange,
+                onAccountChange = formViewModel::onAccountChange,
                 onReceiptImageSelected = formViewModel::onReceiptImageSelected,
                 onReceiptImageRemove = formViewModel::onReceiptImageRemove,
                 onSave = formViewModel::save,

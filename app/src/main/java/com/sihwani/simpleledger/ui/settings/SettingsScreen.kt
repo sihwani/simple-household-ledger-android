@@ -15,12 +15,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,6 +47,7 @@ fun SettingsScreen(
     packageName: String,
     showDebugPremiumToggle: Boolean,
     onBack: () -> Unit,
+    onOpenAccounts: () -> Unit,
     onDebugPremiumChange: (Boolean) -> Unit,
     onExportBackup: (String) -> Unit,
     onImportBackup: (String) -> Unit,
@@ -63,11 +70,6 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         SettingsHeader(onBack = onBack)
-        PremiumSection(
-            isPremium = uiState.isPremium,
-            showDebugPremiumToggle = showDebugPremiumToggle,
-            onDebugPremiumChange = onDebugPremiumChange
-        )
         DataManagementSection(
             uiState = dataManagementUiState,
             onExportBackup = onExportBackup,
@@ -81,8 +83,14 @@ fun SettingsScreen(
             onConfirmDeleteAll = onConfirmDeleteAll,
             onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
         )
+        AccountManagementEntry(onOpenAccounts = onOpenAccounts)
         ReceiptSection(receiptImageCount = uiState.receiptImageCount)
         AppSettingsSection()
+        PremiumSection(
+            isPremium = uiState.isPremium,
+            showDebugPremiumToggle = showDebugPremiumToggle,
+            onDebugPremiumChange = onDebugPremiumChange
+        )
         AppInfoSection(
             versionName = versionName,
             versionCode = versionCode,
@@ -124,62 +132,32 @@ private fun PremiumSection(
     showDebugPremiumToggle: Boolean,
     onDebugPremiumChange: (Boolean) -> Unit
 ) {
+    var showDetails by rememberSaveable { mutableStateOf(false) }
+
     SettingsCard(title = "프리미엄") {
-        Text(
-            text = "한 번만 구매하면 더 깔끔하고 편리하게 사용할 수 있습니다.",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF71717A)
-        )
-        Text(
-            text = "예상 가격: 1,500원 1회 구매",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF047857)
-        )
         InfoRow(
             label = "현재 상태",
             value = if (isPremium) "프리미엄" else "무료"
         )
-
-        SectionLabel(text = "현재 제공")
-        PremiumPolicy.CurrentPremiumFeatures.forEach { feature ->
-            BenefitText(text = feature)
-        }
-
-        SectionLabel(text = "무료 제공")
-        BenefitText(text = "PDF 내보내기 ${PremiumPolicy.FreePdfTrialLimit}회 체험")
-
-        SectionLabel(text = "향후 제공 예정")
-        PremiumPolicy.PlannedPremiumFeatures.forEach { feature ->
-            BenefitText(text = feature)
-        }
-
         Text(
-            text = "※ 결제 기능은 출시 준비 단계에서 연결될 예정입니다.",
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    color = Color(0xFFF4F4F5),
-                    shape = RoundedCornerShape(10.dp)
-                )
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+            text = if (isPremium) {
+                "광고 없이 모든 프리미엄 기능을 사용할 수 있습니다."
+            } else {
+                "광고 제거, PDF 무제한, 계좌/지갑 관리 기능을 사용할 수 있습니다."
+            },
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             color = Color(0xFF71717A)
         )
-
-        Button(
-            onClick = {},
-            enabled = false,
+        OutlinedButton(
+            onClick = { showDetails = true },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
+            shape = RoundedCornerShape(10.dp)
         ) {
             Text(
-                text = "구매 기능 준비 중",
+                text = "자세히 보기",
                 fontWeight = FontWeight.ExtraBold
             )
         }
@@ -199,6 +177,112 @@ private fun PremiumSection(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+
+    if (showDetails) {
+        PremiumDetailsDialog(
+            onDismiss = { showDetails = false }
+        )
+    }
+}
+
+@Composable
+private fun PremiumDetailsDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = "프리미엄") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "한 번만 구매하면 더 깔끔하고 편리하게 사용할 수 있습니다.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF71717A)
+                )
+                Text(
+                    text = "예상 가격: 1,500원 1회 구매",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF047857)
+                )
+
+                SectionLabel(text = "현재 제공")
+                PremiumPolicy.CurrentPremiumFeatures.forEach { feature ->
+                    BenefitText(text = feature)
+                }
+
+                SectionLabel(text = "무료 제공")
+                BenefitText(text = "PDF 내보내기 ${PremiumPolicy.FreePdfTrialLimit}회 체험")
+                BenefitText(text = "계좌/지갑 ${PremiumPolicy.FreeAccountLimit}개 체험")
+
+                SectionLabel(text = "향후 제공 예정")
+                PremiumPolicy.PlannedPremiumFeatures.forEach { feature ->
+                    BenefitText(text = feature)
+                }
+
+                Text(
+                    text = "※ 결제 기능은 출시 준비 단계에서 연결될 예정입니다.",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = Color(0xFFF4F4F5),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF71717A)
+                )
+
+                Button(
+                    onClick = {},
+                    enabled = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
+                ) {
+                    Text(
+                        text = "구매 기능 준비 중",
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "확인")
+            }
+        }
+    )
+}
+
+@Composable
+private fun AccountManagementEntry(
+    onOpenAccounts: () -> Unit
+) {
+    SettingsCard(title = "계좌/지갑 관리") {
+        Text(
+            text = "직접 등록한 계좌/지갑과 거래 내역을 기준으로 계산 잔액을 확인합니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF71717A)
+        )
+        OutlinedButton(
+            onClick = onOpenAccounts,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                text = "계좌/지갑 관리",
+                fontWeight = FontWeight.ExtraBold
+            )
         }
     }
 }
@@ -351,6 +435,7 @@ private fun SettingsScreenPreview() {
                 packageName = "com.sihwani.simpleledger",
                 showDebugPremiumToggle = true,
                 onBack = {},
+                onOpenAccounts = {},
                 onDebugPremiumChange = {},
                 onExportBackup = {},
                 onImportBackup = {},

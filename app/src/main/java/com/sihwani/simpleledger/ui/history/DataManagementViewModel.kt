@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.sihwani.simpleledger.data.backup.BackupFileManager
+import com.sihwani.simpleledger.data.repository.AccountRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
+import com.sihwani.simpleledger.domain.model.Account
 import com.sihwani.simpleledger.domain.model.Transaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,11 +20,13 @@ data class DataManagementUiState(
     val showImportModeDialog: Boolean = false,
     val showReplaceConfirmDialog: Boolean = false,
     val showDeleteAllConfirmDialog: Boolean = false,
-    val pendingImportCount: Int = 0
+    val pendingImportCount: Int = 0,
+    val pendingImportAccountCount: Int = 0
 )
 
 class DataManagementViewModel(
     private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository,
     private val backupFileManager: BackupFileManager,
     private val receiptImageStorage: ReceiptImageStorage
 ) : ViewModel() {
@@ -30,6 +34,7 @@ class DataManagementViewModel(
     val uiState: StateFlow<DataManagementUiState> = _uiState
 
     private var pendingImportTransactions: List<Transaction> = emptyList()
+    private var pendingImportAccounts: List<Account> = emptyList()
 
     fun exportBackup(uriString: String) {
         viewModelScope.launch {
@@ -42,18 +47,20 @@ class DataManagementViewModel(
 
             runCatching {
                 val transactions = transactionRepository.getAllTransactions()
+                val accounts = accountRepository.getAllAccounts()
                 backupFileManager.writeBackup(
                     uriString = uriString,
                     transactions = transactions.map { transaction ->
                         transaction.copy(receiptImagePath = null)
-                    }
+                    },
+                    accounts = accounts
                 )
-                transactions.size
+                transactions.size to accounts.size
             }.onSuccess { count ->
                 _uiState.update {
                     it.copy(
                         isBusy = false,
-                        message = "거래 내역 ${count}건을 내보냈습니다. 영수증 사진은 포함되지 않았습니다."
+                        message = "거래 ${count.first}건, 계좌/지갑 ${count.second}건을 내보냈습니다. 영수증 사진은 포함되지 않았습니다."
                     )
                 }
             }.onFailure { throwable ->
@@ -80,22 +87,26 @@ class DataManagementViewModel(
 
             runCatching {
                 backupFileManager.readBackup(uriString)
+            }.onSuccess { backupData ->
+                pendingImportTransactions = backupData.transactions
                     .map { transaction -> transaction.copy(receiptImagePath = null) }
-            }.onSuccess { transactions ->
-                pendingImportTransactions = transactions
+                pendingImportAccounts = backupData.accounts
                 _uiState.update {
                     it.copy(
                         isBusy = false,
                         showImportModeDialog = true,
-                        pendingImportCount = transactions.size
+                        pendingImportCount = pendingImportTransactions.size,
+                        pendingImportAccountCount = pendingImportAccounts.size
                     )
                 }
             }.onFailure { throwable ->
                 pendingImportTransactions = emptyList()
+                pendingImportAccounts = emptyList()
                 _uiState.update {
                     it.copy(
                         isBusy = false,
                         pendingImportCount = 0,
+                        pendingImportAccountCount = 0,
                         message = throwable.message ?: "백업 파일을 가져오지 못했습니다."
                     )
                 }
@@ -105,9 +116,10 @@ class DataManagementViewModel(
 
     fun mergePendingImport() {
         val importTransactions = pendingImportTransactions
-        if (importTransactions.isEmpty()) {
+        val importAccounts = pendingImportAccounts
+        if (importTransactions.isEmpty() && importAccounts.isEmpty()) {
             dismissImportModeDialog()
-            showMessage("가져올 거래 내역이 없습니다.")
+            showMessage("가져올 데이터가 없습니다.")
             return
         }
 
@@ -124,20 +136,34 @@ class DataManagementViewModel(
                 val existingIds = transactionRepository.getAllTransactions()
                     .map { transaction -> transaction.id }
                     .toSet()
-                val newTransactions = importTransactions
+                val existingAccountIds = accountRepository.getAllAccounts()
+                    .map { account -> account.id }
+                    .toSet()
+                val importAccountIds = importAccounts.map { account -> account.id }.toSet()
+                val validAccountIds = existingAccountIds + importAccountIds
+                val sanitizedTransactions = sanitizeImportedTransactions(
+                    transactions = importTransactions,
+                    validAccountIds = validAccountIds
+                )
+                val newTransactions = sanitizedTransactions
                     .filterNot { transaction -> transaction.id in existingIds }
+                val newAccounts = importAccounts
+                    .filterNot { account -> account.id in existingAccountIds }
 
+                if (newAccounts.isNotEmpty()) {
+                    accountRepository.upsertAll(newAccounts)
+                }
                 if (newTransactions.isNotEmpty()) {
                     transactionRepository.upsertAll(newTransactions)
                 }
 
-                newTransactions.size
+                newTransactions.size to newAccounts.size
             }.onSuccess { mergedCount ->
                 clearPendingImport()
                 _uiState.update {
                     it.copy(
                         isBusy = false,
-                        message = "백업 데이터 병합 완료: 새 거래 ${mergedCount}건을 추가했습니다."
+                        message = "백업 데이터 병합 완료: 새 거래 ${mergedCount.first}건, 새 계좌/지갑 ${mergedCount.second}건을 추가했습니다."
                     )
                 }
             }.onFailure { throwable ->
@@ -162,6 +188,7 @@ class DataManagementViewModel(
 
     fun confirmReplaceImport() {
         val importTransactions = pendingImportTransactions
+        val importAccounts = pendingImportAccounts
 
         viewModelScope.launch {
             _uiState.update {
@@ -174,15 +201,21 @@ class DataManagementViewModel(
 
             runCatching {
                 val existingTransactions = transactionRepository.getAllTransactions()
-                transactionRepository.replaceAll(importTransactions)
+                val importAccountIds = importAccounts.map { account -> account.id }.toSet()
+                val sanitizedTransactions = sanitizeImportedTransactions(
+                    transactions = importTransactions,
+                    validAccountIds = importAccountIds
+                )
+                accountRepository.replaceAll(importAccounts)
+                transactionRepository.replaceAll(sanitizedTransactions)
                 deleteReceiptImages(existingTransactions)
-                importTransactions.size
+                sanitizedTransactions.size to importAccounts.size
             }.onSuccess { importedCount ->
                 clearPendingImport()
                 _uiState.update {
                     it.copy(
                         isBusy = false,
-                        message = "백업 데이터로 교체 완료: 거래 ${importedCount}건을 복원했습니다."
+                        message = "백업 데이터로 교체 완료: 거래 ${importedCount.first}건, 계좌/지갑 ${importedCount.second}건을 복원했습니다."
                     )
                 }
             }.onFailure { throwable ->
@@ -218,13 +251,14 @@ class DataManagementViewModel(
             runCatching {
                 val existingTransactions = transactionRepository.getAllTransactions()
                 transactionRepository.deleteAll()
+                accountRepository.deleteAll()
                 deleteReceiptImages(existingTransactions)
                 existingTransactions.size
             }.onSuccess { deletedCount ->
                 _uiState.update {
                     it.copy(
                         isBusy = false,
-                        message = "전체 거래 내역 ${deletedCount}건을 삭제했습니다."
+                        message = "전체 거래 내역 ${deletedCount}건과 계좌/지갑 데이터를 삭제했습니다."
                     )
                 }
             }.onFailure { throwable ->
@@ -266,9 +300,11 @@ class DataManagementViewModel(
 
     private fun clearPendingImport() {
         pendingImportTransactions = emptyList()
+        pendingImportAccounts = emptyList()
         _uiState.update {
             it.copy(
                 pendingImportCount = 0,
+                pendingImportAccountCount = 0,
                 showImportModeDialog = false,
                 showReplaceConfirmDialog = false
             )
@@ -280,10 +316,29 @@ class DataManagementViewModel(
             it.copy(message = message)
         }
     }
+
+    private fun sanitizeImportedTransactions(
+        transactions: List<Transaction>,
+        validAccountIds: Set<String>
+    ): List<Transaction> {
+        return transactions.map { transaction ->
+            val accountId = transaction.accountId
+            val hasSnapshot = !transaction.accountSnapshotName.isNullOrBlank() ||
+                !transaction.accountSnapshotBankName.isNullOrBlank() ||
+                !transaction.accountSnapshotIdentifier.isNullOrBlank()
+
+            if (accountId == null || accountId in validAccountIds || hasSnapshot) {
+                transaction
+            } else {
+                transaction.copy(accountId = null)
+            }
+        }
+    }
 }
 
 class DataManagementViewModelFactory(
     private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository,
     private val backupFileManager: BackupFileManager,
     private val receiptImageStorage: ReceiptImageStorage
 ) : ViewModelProvider.Factory {
@@ -292,6 +347,7 @@ class DataManagementViewModelFactory(
         if (modelClass.isAssignableFrom(DataManagementViewModel::class.java)) {
             return DataManagementViewModel(
                 transactionRepository = transactionRepository,
+                accountRepository = accountRepository,
                 backupFileManager = backupFileManager,
                 receiptImageStorage = receiptImageStorage
             ) as T

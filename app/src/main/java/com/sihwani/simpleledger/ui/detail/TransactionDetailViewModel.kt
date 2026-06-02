@@ -3,11 +3,15 @@ package com.sihwani.simpleledger.ui.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.sihwani.simpleledger.data.repository.AccountRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
 import com.sihwani.simpleledger.domain.model.Transaction
+import com.sihwani.simpleledger.util.AccountFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -20,11 +24,13 @@ data class TransactionDetailUiState(
     val showDeleteDialog: Boolean = false,
     val isDeleting: Boolean = false,
     val deleteCompleted: Boolean = false,
+    val accountLabel: String? = null,
     val errorMessage: String? = null
 )
 
 class TransactionDetailViewModel(
     private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository,
     private val receiptImageStorage: ReceiptImageStorage,
     private val transactionId: String
 ) : ViewModel() {
@@ -36,13 +42,32 @@ class TransactionDetailViewModel(
     }
 
     private fun observeTransaction() {
-        transactionRepository.observeTransaction(transactionId)
-            .onEach { transaction ->
+        combine(
+            transactionRepository.observeTransaction(transactionId),
+            accountRepository.observeAccounts()
+        ) { transaction, accounts ->
+            val accountLabel = transaction?.accountId?.let { accountId ->
+                accounts.firstOrNull { account -> account.id == accountId }
+                    ?.let { account -> AccountFormatter.displayName(account) }
+                    ?: AccountFormatter.displaySnapshot(
+                        name = transaction.accountSnapshotName,
+                        bankName = transaction.accountSnapshotBankName,
+                        identifier = transaction.accountSnapshotIdentifier
+                    )?.let { snapshotLabel -> "$snapshotLabel (삭제된 계좌 정보)" }
+            }
+            transaction to accountLabel
+        }
+            .collectWithState()
+    }
+
+    private fun Flow<Pair<Transaction?, String?>>.collectWithState() {
+        onEach { (transaction, accountLabel) ->
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         transaction = transaction,
                         notFound = transaction == null,
+                        accountLabel = accountLabel,
                         errorMessage = null
                     )
                 }
@@ -107,6 +132,7 @@ class TransactionDetailViewModel(
 
 class TransactionDetailViewModelFactory(
     private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository,
     private val receiptImageStorage: ReceiptImageStorage,
     private val transactionId: String
 ) : ViewModelProvider.Factory {
@@ -115,6 +141,7 @@ class TransactionDetailViewModelFactory(
         if (modelClass.isAssignableFrom(TransactionDetailViewModel::class.java)) {
             return TransactionDetailViewModel(
                 transactionRepository = transactionRepository,
+                accountRepository = accountRepository,
                 receiptImageStorage = receiptImageStorage,
                 transactionId = transactionId
             ) as T

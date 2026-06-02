@@ -49,6 +49,25 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    @Query("SELECT COUNT(*) FROM transactions WHERE accountId = :accountId")
+    suspend fun countByAccountId(accountId: String): Int
+
+    @Query(
+        """
+        UPDATE transactions
+        SET accountSnapshotName = :name,
+            accountSnapshotBankName = :bankName,
+            accountSnapshotIdentifier = :identifier
+        WHERE accountId = :accountId
+        """
+    )
+    suspend fun updateAccountSnapshot(
+        accountId: String,
+        name: String?,
+        bankName: String?,
+        identifier: String?
+    )
+
     @Query("DELETE FROM transactions")
     suspend fun deleteAll()
 }

@@ -13,6 +13,10 @@ data class TransactionEntity(
     val date: String,
     val memo: String?,
     val receiptImagePath: String?,
+    val accountId: String?,
+    val accountSnapshotName: String?,
+    val accountSnapshotBankName: String?,
+    val accountSnapshotIdentifier: String?,
     val createdAt: Long,
     val updatedAt: Long?
 )

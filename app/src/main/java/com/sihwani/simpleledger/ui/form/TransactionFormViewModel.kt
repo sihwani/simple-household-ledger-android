@@ -3,8 +3,10 @@ package com.sihwani.simpleledger.ui.form
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.sihwani.simpleledger.data.repository.AccountRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
+import com.sihwani.simpleledger.domain.model.Account
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionCategories
 import com.sihwani.simpleledger.domain.model.TransactionType
@@ -14,6 +16,8 @@ import com.sihwani.simpleledger.util.MoneyInputFormatter
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -24,6 +28,8 @@ data class TransactionFormUiState(
     val category: String = TransactionCategories.forType(type).first(),
     val date: String = DateUtils.todayIso(),
     val memo: String = "",
+    val selectedAccountId: String? = null,
+    val accounts: List<Account> = emptyList(),
     val categories: List<String> = TransactionCategories.forType(type),
     val receiptImagePath: String? = null,
     val selectedReceiptImageUri: String? = null,
@@ -53,10 +59,14 @@ data class TransactionFormUiState(
 
     val receiptPreviewSource: String?
         get() = selectedReceiptImageUri ?: receiptImagePath.takeUnless { isReceiptMarkedForDeletion }
+
+    val accountOptions: List<Account>
+        get() = accounts.filter { account -> account.isActive || account.id == selectedAccountId }
 }
 
 class TransactionFormViewModel(
     private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository,
     private val receiptImageStorage: ReceiptImageStorage,
     type: TransactionType,
     private val transactionId: String? = null
@@ -72,7 +82,16 @@ class TransactionFormViewModel(
     val uiState: StateFlow<TransactionFormUiState> = _uiState
 
     init {
+        observeAccounts()
         transactionId?.let { id -> loadTransaction(id) }
+    }
+
+    private fun observeAccounts() {
+        accountRepository.observeAccounts()
+            .onEach { accounts ->
+                _uiState.update { it.copy(accounts = accounts) }
+            }
+            .launchIn(viewModelScope)
     }
 
     private fun loadTransaction(id: String) {
@@ -99,6 +118,7 @@ class TransactionFormViewModel(
                     category = transaction.category,
                     date = transaction.date,
                     memo = transaction.memo.orEmpty(),
+                    selectedAccountId = transaction.accountId,
                     categories = TransactionCategories.forType(transaction.type),
                     receiptImagePath = transaction.receiptImagePath,
                     selectedReceiptImageUri = null,
@@ -150,6 +170,15 @@ class TransactionFormViewModel(
     fun onMemoChange(value: String) {
         _uiState.update {
             it.copy(memo = value)
+        }
+    }
+
+    fun onAccountChange(accountId: String?) {
+        _uiState.update {
+            it.copy(
+                selectedAccountId = accountId,
+                errorMessage = null
+            )
         }
     }
 
@@ -224,6 +253,9 @@ class TransactionFormViewModel(
             runCatching {
                 val now = System.currentTimeMillis()
                 val transactionId = original?.id ?: UUID.randomUUID().toString()
+                val selectedAccount = state.accounts.firstOrNull { account ->
+                    account.id == state.selectedAccountId
+                }
                 val receiptImagePath = resolveReceiptImagePath(
                     state = state,
                     transactionId = transactionId
@@ -243,6 +275,22 @@ class TransactionFormViewModel(
                         date = state.date,
                         memo = memo,
                         receiptImagePath = receiptImagePath,
+                        accountId = state.selectedAccountId,
+                        accountSnapshotName = resolveAccountSnapshotName(
+                            selectedAccount = selectedAccount,
+                            original = original,
+                            selectedAccountId = state.selectedAccountId
+                        ),
+                        accountSnapshotBankName = resolveAccountSnapshotBankName(
+                            selectedAccount = selectedAccount,
+                            original = original,
+                            selectedAccountId = state.selectedAccountId
+                        ),
+                        accountSnapshotIdentifier = resolveAccountSnapshotIdentifier(
+                            selectedAccount = selectedAccount,
+                            original = original,
+                            selectedAccountId = state.selectedAccountId
+                        ),
                         createdAt = original?.createdAt ?: now,
                         updatedAt = if (state.isEditMode) now else null
                     )
@@ -298,10 +346,50 @@ class TransactionFormViewModel(
             originalTransaction?.receiptImagePath
         }
     }
+
+    private fun resolveAccountSnapshotName(
+        selectedAccount: Account?,
+        original: Transaction?,
+        selectedAccountId: String?
+    ): String? {
+        return when {
+            selectedAccountId == null -> null
+            selectedAccount != null -> selectedAccount.name
+            selectedAccountId == original?.accountId -> original.accountSnapshotName
+            else -> null
+        }
+    }
+
+    private fun resolveAccountSnapshotBankName(
+        selectedAccount: Account?,
+        original: Transaction?,
+        selectedAccountId: String?
+    ): String? {
+        return when {
+            selectedAccountId == null -> null
+            selectedAccount != null -> selectedAccount.bankName
+            selectedAccountId == original?.accountId -> original.accountSnapshotBankName
+            else -> null
+        }
+    }
+
+    private fun resolveAccountSnapshotIdentifier(
+        selectedAccount: Account?,
+        original: Transaction?,
+        selectedAccountId: String?
+    ): String? {
+        return when {
+            selectedAccountId == null -> null
+            selectedAccount != null -> selectedAccount.identifier
+            selectedAccountId == original?.accountId -> original.accountSnapshotIdentifier
+            else -> null
+        }
+    }
 }
 
 class TransactionFormViewModelFactory(
     private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository,
     private val receiptImageStorage: ReceiptImageStorage,
     private val type: TransactionType,
     private val transactionId: String? = null
@@ -311,6 +399,7 @@ class TransactionFormViewModelFactory(
         if (modelClass.isAssignableFrom(TransactionFormViewModel::class.java)) {
             return TransactionFormViewModel(
                 transactionRepository = transactionRepository,
+                accountRepository = accountRepository,
                 receiptImageStorage = receiptImageStorage,
                 type = type,
                 transactionId = transactionId

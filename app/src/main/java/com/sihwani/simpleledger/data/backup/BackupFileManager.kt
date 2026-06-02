@@ -2,6 +2,7 @@ package com.sihwani.simpleledger.data.backup
 
 import android.content.Context
 import android.net.Uri
+import com.sihwani.simpleledger.domain.model.Account
 import com.sihwani.simpleledger.domain.model.Transaction
 import java.io.IOException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -14,17 +15,21 @@ class BackupFileManager(
 ) {
     suspend fun writeBackup(
         uriString: String,
-        transactions: List<Transaction>
+        transactions: List<Transaction>,
+        accounts: List<Account>
     ) = withContext(ioDispatcher) {
         val uri = Uri.parse(uriString)
-        val jsonText = BackupJson.encode(transactions)
+        val jsonText = BackupJson.encode(
+            transactions = transactions,
+            accounts = accounts
+        )
 
         context.contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->
             outputStream.write(jsonText.toByteArray(Charsets.UTF_8))
         } ?: throw IOException("백업 파일을 저장할 수 없습니다.")
     }
 
-    suspend fun readBackup(uriString: String): List<Transaction> = withContext(ioDispatcher) {
+    suspend fun readBackup(uriString: String): BackupData = withContext(ioDispatcher) {
         val uri = Uri.parse(uriString)
         val jsonText = context.contentResolver.openInputStream(uri)?.use { inputStream ->
             inputStream.bufferedReader(Charsets.UTF_8).readText()

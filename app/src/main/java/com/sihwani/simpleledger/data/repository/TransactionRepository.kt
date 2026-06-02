@@ -4,6 +4,7 @@ import com.sihwani.simpleledger.data.local.TransactionDao
 import com.sihwani.simpleledger.data.mapper.toDomain
 import com.sihwani.simpleledger.data.mapper.toDomainList
 import com.sihwani.simpleledger.data.mapper.toEntity
+import com.sihwani.simpleledger.domain.model.Account
 import com.sihwani.simpleledger.domain.model.MonthlySummary
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionType
@@ -53,6 +54,19 @@ class TransactionRepository(
 
     suspend fun delete(id: String) = withContext(ioDispatcher) {
         transactionDao.deleteById(id)
+    }
+
+    suspend fun countTransactionsForAccount(accountId: String): Int = withContext(ioDispatcher) {
+        transactionDao.countByAccountId(accountId)
+    }
+
+    suspend fun updateAccountSnapshot(account: Account) = withContext(ioDispatcher) {
+        transactionDao.updateAccountSnapshot(
+            accountId = account.id,
+            name = account.name,
+            bankName = account.bankName,
+            identifier = account.identifier
+        )
     }
 
     suspend fun deleteAll() = withContext(ioDispatcher) {

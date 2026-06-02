@@ -9,6 +9,10 @@ data class Transaction(
     val date: String,
     val memo: String?,
     val receiptImagePath: String?,
+    val accountId: String? = null,
+    val accountSnapshotName: String? = null,
+    val accountSnapshotBankName: String? = null,
+    val accountSnapshotIdentifier: String? = null,
     val createdAt: Long,
     val updatedAt: Long?
 )

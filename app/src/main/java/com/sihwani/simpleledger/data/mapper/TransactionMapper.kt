@@ -16,6 +16,10 @@ fun TransactionEntity.toDomain(): Transaction? {
         date = date,
         memo = memo,
         receiptImagePath = receiptImagePath,
+        accountId = accountId,
+        accountSnapshotName = accountSnapshotName,
+        accountSnapshotBankName = accountSnapshotBankName,
+        accountSnapshotIdentifier = accountSnapshotIdentifier,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
@@ -31,6 +35,10 @@ fun Transaction.toEntity(): TransactionEntity {
         date = date,
         memo = memo,
         receiptImagePath = receiptImagePath,
+        accountId = accountId,
+        accountSnapshotName = accountSnapshotName,
+        accountSnapshotBankName = accountSnapshotBankName,
+        accountSnapshotIdentifier = accountSnapshotIdentifier,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
