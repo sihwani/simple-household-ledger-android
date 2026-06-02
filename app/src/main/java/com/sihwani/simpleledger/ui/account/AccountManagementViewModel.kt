@@ -6,9 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.AccountRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
+import com.sihwani.simpleledger.domain.account.AccountBalanceCalculator
 import com.sihwani.simpleledger.domain.model.Account
-import com.sihwani.simpleledger.domain.model.Transaction
-import com.sihwani.simpleledger.domain.model.TransactionType
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.util.AccountFormatter
 import com.sihwani.simpleledger.util.DateUtils
@@ -88,7 +87,7 @@ class AccountManagementViewModel(
         val accountItems = accounts.map { account ->
             AccountBalanceItem(
                 account = account,
-                calculatedBalance = calculateBalance(account, transactions)
+                calculatedBalance = AccountBalanceCalculator.calculate(account, transactions)
             )
         }
         AccountManagementUiState(
@@ -425,23 +424,6 @@ class AccountManagementViewModel(
             .plus(uiState.value.inactiveAccounts)
             .firstOrNull { item -> item.account.id == accountId }
             ?.account
-    }
-
-    private fun calculateBalance(
-        account: Account,
-        transactions: List<Transaction>
-    ): Long {
-        val accountTransactions = transactions.filter { transaction ->
-            transaction.accountId == account.id && transaction.date >= account.baseDate
-        }
-        val income = accountTransactions
-            .filter { transaction -> transaction.type == TransactionType.INCOME }
-            .sumOf { transaction -> transaction.amount }
-        val expense = accountTransactions
-            .filter { transaction -> transaction.type == TransactionType.EXPENSE }
-            .sumOf { transaction -> transaction.amount }
-
-        return account.baseBalance + income - expense
     }
 }
 

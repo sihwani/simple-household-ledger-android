@@ -3,10 +3,13 @@ package com.sihwani.simpleledger.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.sihwani.simpleledger.data.repository.AccountRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
+import com.sihwani.simpleledger.domain.account.AccountBalanceCalculator
 import com.sihwani.simpleledger.domain.model.MonthlySummary
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionType
+import com.sihwani.simpleledger.util.AccountFormatter
 import com.sihwani.simpleledger.util.DateUtils
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +25,7 @@ data class HomeUiState(
     val monthLabel: String = DateUtils.formatMonthLabel(DateUtils.currentMonthKey()),
     val incomeTransactions: List<Transaction> = emptyList(),
     val expenseTransactions: List<Transaction> = emptyList(),
+    val accountSummary: HomeAccountSummaryUiState = HomeAccountSummaryUiState(),
     val summary: MonthlySummary = MonthlySummary(
         income = 0L,
         expense = 0L,
@@ -29,9 +33,23 @@ data class HomeUiState(
     )
 )
 
+data class HomeAccountSummaryUiState(
+    val totalCalculatedBalance: Long = 0L,
+    val previewAccounts: List<HomeAccountBalanceItem> = emptyList(),
+    val hiddenAccountCount: Int = 0,
+    val hasActiveAccounts: Boolean = false
+)
+
+data class HomeAccountBalanceItem(
+    val id: String,
+    val name: String,
+    val calculatedBalance: Long
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository
 ) : ViewModel() {
     private val selectedMonthKey = MutableStateFlow(DateUtils.currentMonthKey())
 
@@ -41,18 +59,37 @@ class HomeViewModel(
 
     val uiState: StateFlow<HomeUiState> = combine(
         selectedMonthKey,
-        monthlyTransactions
-    ) { monthKey, transactions ->
+        monthlyTransactions,
+        accountRepository.observeActiveAccounts(),
+        transactionRepository.observeAllTransactions()
+    ) { monthKey, transactions, activeAccounts, allTransactions ->
         val incomeTransactions = transactions.filter { it.type == TransactionType.INCOME }
         val expenseTransactions = transactions.filter { it.type == TransactionType.EXPENSE }
         val incomeTotal = incomeTransactions.sumOf { it.amount }
         val expenseTotal = expenseTransactions.sumOf { it.amount }
+        val accountBalances = AccountBalanceCalculator.summarizeActive(
+            accounts = activeAccounts,
+            transactions = allTransactions
+        )
+        val previewAccounts = accountBalances.take(HomeAccountPreviewLimit).map { item ->
+            HomeAccountBalanceItem(
+                id = item.account.id,
+                name = AccountFormatter.shortName(item.account),
+                calculatedBalance = item.calculatedBalance
+            )
+        }
 
         HomeUiState(
             selectedMonthKey = monthKey,
             monthLabel = DateUtils.formatMonthLabel(monthKey),
             incomeTransactions = incomeTransactions,
             expenseTransactions = expenseTransactions,
+            accountSummary = HomeAccountSummaryUiState(
+                totalCalculatedBalance = accountBalances.sumOf { item -> item.calculatedBalance },
+                previewAccounts = previewAccounts,
+                hiddenAccountCount = (accountBalances.size - previewAccounts.size).coerceAtLeast(0),
+                hasActiveAccounts = accountBalances.isNotEmpty()
+            ),
             summary = MonthlySummary(
                 income = incomeTotal,
                 expense = expenseTotal,
@@ -80,13 +117,19 @@ class HomeViewModel(
     }
 }
 
+private const val HomeAccountPreviewLimit = 2
+
 class HomeViewModelFactory(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-            return HomeViewModel(transactionRepository) as T
+            return HomeViewModel(
+                transactionRepository = transactionRepository,
+                accountRepository = accountRepository
+            ) as T
         }
 
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

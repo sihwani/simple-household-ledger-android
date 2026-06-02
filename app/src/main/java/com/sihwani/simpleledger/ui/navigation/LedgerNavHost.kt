@@ -60,7 +60,8 @@ fun LedgerNavHost(
         composable(LedgerRoutes.Home) {
             val homeViewModel: HomeViewModel = viewModel(
                 factory = HomeViewModelFactory(
-                    transactionRepository = transactionRepository
+                    transactionRepository = transactionRepository,
+                    accountRepository = accountRepository
                 )
             )
             val uiState by homeViewModel.uiState.collectAsState()
@@ -79,6 +80,7 @@ fun LedgerNavHost(
                 },
                 onShowHistory = { navController.navigate(LedgerRoutes.History) },
                 onOpenSettings = { navController.navigate(LedgerRoutes.Settings) },
+                onOpenAccounts = { navController.navigate(LedgerRoutes.Accounts) },
                 onMonthSelected = homeViewModel::moveToMonth,
                 onTransactionClick = { transactionId ->
                     navController.navigate(LedgerRoutes.transactionDetail(transactionId))

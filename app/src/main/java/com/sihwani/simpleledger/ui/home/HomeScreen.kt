@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -59,6 +60,7 @@ fun HomeScreen(
     onHome: () -> Unit,
     onShowHistory: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenAccounts: () -> Unit,
     onMonthSelected: (String) -> Unit,
     onTransactionClick: (String) -> Unit,
     isPremium: Boolean,
@@ -100,6 +102,10 @@ fun HomeScreen(
                 onMonthSelected = onMonthSelected
             )
             SummaryCard(summary = uiState.summary)
+            AccountSummaryCard(
+                accountSummary = uiState.accountSummary,
+                onOpenAccounts = onOpenAccounts
+            )
             HistoryButton(onShowHistory = onShowHistory)
             TransactionColumns(
                 expenseTransactions = uiState.expenseTransactions,
@@ -422,6 +428,122 @@ private fun SummaryCard(summary: MonthlySummary) {
 }
 
 @Composable
+private fun AccountSummaryCard(
+    accountSummary: HomeAccountSummaryUiState,
+    onOpenAccounts: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "계좌/지갑",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF18181B)
+            )
+
+            if (accountSummary.hasActiveAccounts) {
+                Text(
+                    text = "총 계산 잔액 ${MoneyFormatter.formatWon(accountSummary.totalCalculatedBalance)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF18181B),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    accountSummary.previewAccounts.forEach { account ->
+                        AccountPreviewRow(account = account)
+                    }
+                    if (accountSummary.hiddenAccountCount > 0) {
+                        Text(
+                            text = "외 ${accountSummary.hiddenAccountCount}개 계좌",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF71717A)
+                        )
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = onOpenAccounts,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        text = "전체 계좌 보기",
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            } else {
+                Text(
+                    text = "계좌를 등록하면 거래와 연결해 계산 잔액을 확인할 수 있습니다.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF71717A)
+                )
+
+                Button(
+                    onClick = onOpenAccounts,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
+                ) {
+                    Text(
+                        text = "계좌 등록하기",
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountPreviewRow(
+    account: HomeAccountBalanceItem
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = account.name,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF3F3F46),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = MoneyFormatter.formatWon(account.calculatedBalance),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.End,
+            color = Color(0xFF18181B),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 private fun HistoryButton(
     onShowHistory: () -> Unit
 ) {
@@ -631,6 +753,23 @@ private fun HomeScreenPreview() {
                     monthLabel = "2026년 6월",
                     incomeTransactions = transactions.filter { it.type == TransactionType.INCOME },
                     expenseTransactions = transactions.filter { it.type == TransactionType.EXPENSE },
+                    accountSummary = HomeAccountSummaryUiState(
+                        totalCalculatedBalance = 3_250_000L,
+                        previewAccounts = listOf(
+                            HomeAccountBalanceItem(
+                                id = "account-1",
+                                name = "생활통장",
+                                calculatedBalance = 1_150_000L
+                            ),
+                            HomeAccountBalanceItem(
+                                id = "account-2",
+                                name = "월급통장",
+                                calculatedBalance = 2_000_000L
+                            )
+                        ),
+                        hiddenAccountCount = 1,
+                        hasActiveAccounts = true
+                    ),
                     summary = MonthlySummary(
                         income = 2_800_000L,
                         expense = 126_000L,
@@ -644,6 +783,7 @@ private fun HomeScreenPreview() {
                 onHome = {},
                 onShowHistory = {},
                 onOpenSettings = {},
+                onOpenAccounts = {},
                 onMonthSelected = {},
                 onTransactionClick = {},
                 isPremium = false,
