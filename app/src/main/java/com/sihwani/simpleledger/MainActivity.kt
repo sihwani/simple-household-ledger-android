@@ -17,6 +17,7 @@ import com.sihwani.simpleledger.data.local.LedgerDatabase
 import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.AccountRepository
+import com.sihwani.simpleledger.data.repository.DataManagementRepository
 import com.sihwani.simpleledger.data.repository.RecurringTransactionRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
@@ -47,6 +48,12 @@ class MainActivity : ComponentActivity() {
             recurringTransactionDao = LedgerDatabase
                 .getInstance(applicationContext)
                 .recurringTransactionDao()
+        )
+    }
+    private val dataManagementRepository: DataManagementRepository by lazy {
+        DataManagementRepository(
+            database = LedgerDatabase.getInstance(applicationContext),
+            appDateProvider = appDateProvider
         )
     }
     private val receiptImageStorage: ReceiptImageStorage by lazy {
@@ -82,6 +89,7 @@ class MainActivity : ComponentActivity() {
                 transactionRepository = transactionRepository,
                 accountRepository = accountRepository,
                 recurringTransactionRepository = recurringTransactionRepository,
+                dataManagementRepository = dataManagementRepository,
                 receiptImageStorage = receiptImageStorage,
                 backupFileManager = backupFileManager,
                 premiumRepository = premiumRepository,
@@ -99,6 +107,7 @@ private fun HannunLedgerApp(
     transactionRepository: TransactionRepository,
     accountRepository: AccountRepository,
     recurringTransactionRepository: RecurringTransactionRepository,
+    dataManagementRepository: DataManagementRepository,
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
     premiumRepository: PremiumRepository,
@@ -116,6 +125,7 @@ private fun HannunLedgerApp(
                 transactionRepository = transactionRepository,
                 accountRepository = accountRepository,
                 recurringTransactionRepository = recurringTransactionRepository,
+                dataManagementRepository = dataManagementRepository,
                 receiptImageStorage = receiptImageStorage,
                 backupFileManager = backupFileManager,
                 premiumRepository = premiumRepository,

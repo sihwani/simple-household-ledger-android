@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.sihwani.simpleledger.data.backup.BackupFileManager
 import com.sihwani.simpleledger.data.repository.AccountRepository
+import com.sihwani.simpleledger.data.repository.DataManagementRepository
 import com.sihwani.simpleledger.data.repository.RecurringTransactionRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
@@ -12,7 +13,6 @@ import com.sihwani.simpleledger.domain.model.Account
 import com.sihwani.simpleledger.domain.model.RecurringSkippedOccurrence
 import com.sihwani.simpleledger.domain.model.RecurringTransaction
 import com.sihwani.simpleledger.domain.model.Transaction
-import com.sihwani.simpleledger.domain.recurring.RecurringTransactionScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -33,7 +33,7 @@ class DataManagementViewModel(
     private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
     private val recurringTransactionRepository: RecurringTransactionRepository,
-    private val recurringTransactionScheduler: RecurringTransactionScheduler,
+    private val dataManagementRepository: DataManagementRepository,
     private val backupFileManager: BackupFileManager,
     private val receiptImageStorage: ReceiptImageStorage
 ) : ViewModel() {
@@ -154,53 +154,18 @@ class DataManagementViewModel(
             }
 
             runCatching {
-                val existingIds = transactionRepository.getAllTransactions()
-                    .map { transaction -> transaction.id }
-                    .toSet()
-                val existingAccountIds = accountRepository.getAllAccounts()
-                    .map { account -> account.id }
-                    .toSet()
-                val existingRecurringIds = recurringTransactionRepository.getAll()
-                    .map { rule -> rule.id }
-                    .toSet()
-                val importAccountIds = importAccounts.map { account -> account.id }.toSet()
-                val validAccountIds = existingAccountIds + importAccountIds
-                val sanitizedTransactions = sanitizeImportedTransactions(
+                dataManagementRepository.mergeImport(
                     transactions = importTransactions,
-                    validAccountIds = validAccountIds
+                    accounts = importAccounts,
+                    recurringTransactions = importRecurringTransactions,
+                    skippedOccurrences = importSkippedOccurrences
                 )
-                val sanitizedRecurringTransactions = sanitizeImportedRecurringTransactions(
-                    rules = importRecurringTransactions,
-                    validAccountIds = validAccountIds
-                )
-                val newTransactions = sanitizedTransactions
-                    .filterNot { transaction -> transaction.id in existingIds }
-                val newAccounts = importAccounts
-                    .filterNot { account -> account.id in existingAccountIds }
-                val newRecurringTransactions = sanitizedRecurringTransactions
-                    .filterNot { rule -> rule.id in existingRecurringIds }
-
-                if (newAccounts.isNotEmpty()) {
-                    accountRepository.upsertAll(newAccounts)
-                }
-                if (newRecurringTransactions.isNotEmpty()) {
-                    recurringTransactionRepository.upsertAll(newRecurringTransactions)
-                }
-                if (importSkippedOccurrences.isNotEmpty()) {
-                    recurringTransactionRepository.upsertSkippedOccurrences(importSkippedOccurrences)
-                }
-                if (newTransactions.isNotEmpty()) {
-                    transactionRepository.upsertAll(newTransactions)
-                }
-                recurringTransactionScheduler.sync()
-
-                Triple(newTransactions.size, newAccounts.size, newRecurringTransactions.size)
             }.onSuccess { mergedCount ->
                 clearPendingImport()
                 _uiState.update {
                     it.copy(
                         isBusy = false,
-                        message = "백업 데이터 병합 완료: 새 거래 ${mergedCount.first}건, 새 계좌/지갑 ${mergedCount.second}건, 새 반복 거래 ${mergedCount.third}건을 추가했습니다."
+                        message = "백업 데이터 병합 완료: 새 거래 ${mergedCount.transactionCount}건, 새 계좌/지갑 ${mergedCount.accountCount}건, 새 반복 거래 ${mergedCount.recurringTransactionCount}건을 추가했습니다."
                     )
                 }
             }.onFailure { throwable ->
@@ -239,31 +204,20 @@ class DataManagementViewModel(
             }
 
             runCatching {
-                val existingTransactions = transactionRepository.getAllTransactions()
-                val importAccountIds = importAccounts.map { account -> account.id }.toSet()
-                val sanitizedTransactions = sanitizeImportedTransactions(
+                val result = dataManagementRepository.replaceImport(
                     transactions = importTransactions,
-                    validAccountIds = importAccountIds
-                )
-                val sanitizedRecurringTransactions = sanitizeImportedRecurringTransactions(
-                    rules = importRecurringTransactions,
-                    validAccountIds = importAccountIds
-                )
-                recurringTransactionRepository.replaceAll(
-                    rules = sanitizedRecurringTransactions,
+                    accounts = importAccounts,
+                    recurringTransactions = importRecurringTransactions,
                     skippedOccurrences = importSkippedOccurrences
                 )
-                accountRepository.replaceAll(importAccounts)
-                transactionRepository.replaceAll(sanitizedTransactions)
-                recurringTransactionScheduler.sync()
-                deleteReceiptImages(existingTransactions)
-                Triple(sanitizedTransactions.size, importAccounts.size, sanitizedRecurringTransactions.size)
+                deleteReceiptImages(result.replacedTransactions)
+                result
             }.onSuccess { importedCount ->
                 clearPendingImport()
                 _uiState.update {
                     it.copy(
                         isBusy = false,
-                        message = "백업 데이터로 교체 완료: 거래 ${importedCount.first}건, 계좌/지갑 ${importedCount.second}건, 반복 거래 ${importedCount.third}건을 복원했습니다."
+                        message = "백업 데이터로 교체 완료: 거래 ${importedCount.transactionCount}건, 계좌/지갑 ${importedCount.accountCount}건, 반복 거래 ${importedCount.recurringTransactionCount}건을 복원했습니다."
                     )
                 }
             }.onFailure { throwable ->
@@ -297,12 +251,9 @@ class DataManagementViewModel(
             }
 
             runCatching {
-                val existingTransactions = transactionRepository.getAllTransactions()
-                transactionRepository.deleteAll()
-                recurringTransactionRepository.deleteAll()
-                accountRepository.deleteAll()
-                deleteReceiptImages(existingTransactions)
-                existingTransactions.size
+                val result = dataManagementRepository.deleteAllData()
+                deleteReceiptImages(result.deletedTransactions)
+                result.transactionCount
             }.onSuccess { deletedCount ->
                 _uiState.update {
                     it.copy(
@@ -369,44 +320,13 @@ class DataManagementViewModel(
         }
     }
 
-    private fun sanitizeImportedTransactions(
-        transactions: List<Transaction>,
-        validAccountIds: Set<String>
-    ): List<Transaction> {
-        return transactions.map { transaction ->
-            val accountId = transaction.accountId
-            val hasSnapshot = !transaction.accountSnapshotName.isNullOrBlank() ||
-                !transaction.accountSnapshotBankName.isNullOrBlank() ||
-                !transaction.accountSnapshotIdentifier.isNullOrBlank()
-
-            if (accountId == null || accountId in validAccountIds || hasSnapshot) {
-                transaction
-            } else {
-                transaction.copy(accountId = null)
-            }
-        }
-    }
-
-    private fun sanitizeImportedRecurringTransactions(
-        rules: List<RecurringTransaction>,
-        validAccountIds: Set<String>
-    ): List<RecurringTransaction> {
-        return rules.map { rule ->
-            val accountId = rule.accountId
-            if (accountId == null || accountId in validAccountIds) {
-                rule
-            } else {
-                rule.copy(accountId = null)
-            }
-        }
-    }
 }
 
 class DataManagementViewModelFactory(
     private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
     private val recurringTransactionRepository: RecurringTransactionRepository,
-    private val recurringTransactionScheduler: RecurringTransactionScheduler,
+    private val dataManagementRepository: DataManagementRepository,
     private val backupFileManager: BackupFileManager,
     private val receiptImageStorage: ReceiptImageStorage
 ) : ViewModelProvider.Factory {
@@ -417,7 +337,7 @@ class DataManagementViewModelFactory(
                 transactionRepository = transactionRepository,
                 accountRepository = accountRepository,
                 recurringTransactionRepository = recurringTransactionRepository,
-                recurringTransactionScheduler = recurringTransactionScheduler,
+                dataManagementRepository = dataManagementRepository,
                 backupFileManager = backupFileManager,
                 receiptImageStorage = receiptImageStorage
             ) as T

@@ -18,6 +18,7 @@ import com.sihwani.simpleledger.data.layout.ScreenLayoutPreferenceRepository
 import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.AccountRepository
+import com.sihwani.simpleledger.data.repository.DataManagementRepository
 import com.sihwani.simpleledger.data.repository.RecurringTransactionRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
 import com.sihwani.simpleledger.data.storage.ReceiptImageStorage
@@ -52,6 +53,7 @@ fun LedgerNavHost(
     transactionRepository: TransactionRepository,
     accountRepository: AccountRepository,
     recurringTransactionRepository: RecurringTransactionRepository,
+    dataManagementRepository: DataManagementRepository,
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
     premiumRepository: PremiumRepository,
@@ -245,7 +247,7 @@ fun LedgerNavHost(
                     transactionRepository = transactionRepository,
                     accountRepository = accountRepository,
                     recurringTransactionRepository = recurringTransactionRepository,
-                    recurringTransactionScheduler = recurringTransactionScheduler,
+                    dataManagementRepository = dataManagementRepository,
                     backupFileManager = backupFileManager,
                     receiptImageStorage = receiptImageStorage
                 )
