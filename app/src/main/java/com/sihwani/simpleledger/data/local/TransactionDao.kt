@@ -46,6 +46,9 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(transactions: List<TransactionEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAllIgnoreConflicts(transactions: List<TransactionEntity>)
+
     @Query(
         """
         UPDATE transactions

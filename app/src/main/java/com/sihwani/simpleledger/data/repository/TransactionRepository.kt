@@ -53,6 +53,10 @@ class TransactionRepository(
         transactionDao.upsertAll(transactions.map { it.toEntity() })
     }
 
+    suspend fun insertAllIgnoreConflicts(transactions: List<Transaction>) = withContext(ioDispatcher) {
+        transactionDao.insertAllIgnoreConflicts(transactions.map { it.toEntity() })
+    }
+
     suspend fun markScheduledDueAsPosted(
         todayIso: String,
         updatedAt: Long = System.currentTimeMillis()

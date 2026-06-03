@@ -387,15 +387,14 @@ class TransactionFormViewModel(
         }
 
         val validAmount = amount ?: return
+        _uiState.update {
+            it.copy(
+                isSaving = true,
+                errorMessage = null
+            )
+        }
 
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isSaving = true,
-                    errorMessage = null
-                )
-            }
-
             var copiedReceiptPath: String? = null
 
             runCatching {

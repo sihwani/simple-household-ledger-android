@@ -28,16 +28,16 @@ class RecurringTransactionScheduler(
         }
 
         val allTransactions = transactionRepository.getAllTransactions()
-        val existingOccurrenceKeys = allTransactions
+        val occupiedOccurrenceKeys = allTransactions
             .mapNotNull { transaction ->
                 val ruleId = transaction.recurringRuleId ?: return@mapNotNull null
                 val occurrenceKey = transaction.recurringOccurrenceKey ?: return@mapNotNull null
-                occurrenceIdentity(ruleId, occurrenceKey)
+                RecurringOccurrenceKeys.identity(ruleId, occurrenceKey)
             }
             .toSet()
-        val skippedOccurrenceKeys = recurringTransactionRepository.getSkippedOccurrences()
-            .map { skip -> occurrenceIdentity(skip.recurringRuleId, skip.recurringOccurrenceKey) }
-            .toSet()
+            .toMutableSet()
+        occupiedOccurrenceKeys += recurringTransactionRepository.getSkippedOccurrences()
+            .map { skip -> RecurringOccurrenceKeys.identity(skip.recurringRuleId, skip.recurringOccurrenceKey) }
         val accounts = accountRepository.getAllAccounts()
             .associateBy { account -> account.id }
         val horizon = today.plusMonths(FutureGenerationMonths)
@@ -48,9 +48,9 @@ class RecurringTransactionScheduler(
                 rule = rule,
                 horizon = horizon
             ).mapNotNull { occurrenceDate ->
-                val occurrenceKey = occurrenceDate.toString()
-                val identity = occurrenceIdentity(rule.id, occurrenceKey)
-                if (identity in existingOccurrenceKeys || identity in skippedOccurrenceKeys) {
+                val occurrenceKey = RecurringOccurrenceKeys.keyFor(occurrenceDate)
+                val identity = RecurringOccurrenceKeys.identity(rule.id, occurrenceKey)
+                if (!occupiedOccurrenceKeys.add(identity)) {
                     return@mapNotNull null
                 }
 
@@ -66,7 +66,7 @@ class RecurringTransactionScheduler(
         }
 
         if (transactionsToCreate.isNotEmpty()) {
-            transactionRepository.upsertAll(transactionsToCreate)
+            transactionRepository.insertAllIgnoreConflicts(transactionsToCreate)
         }
     }
 
@@ -164,7 +164,7 @@ class RecurringTransactionScheduler(
         val selectedAccountId = account?.id
 
         return Transaction(
-            id = "recurring-${id}-$occurrenceKey",
+            id = RecurringOccurrenceKeys.transactionId(id, occurrenceKey),
             type = type,
             title = title,
             amount = amount,
@@ -186,10 +186,6 @@ class RecurringTransactionScheduler(
             recurringRuleId = id,
             recurringOccurrenceKey = occurrenceKey
         )
-    }
-
-    private fun occurrenceIdentity(ruleId: String, occurrenceKey: String): String {
-        return "$ruleId|$occurrenceKey"
     }
 
     private companion object {

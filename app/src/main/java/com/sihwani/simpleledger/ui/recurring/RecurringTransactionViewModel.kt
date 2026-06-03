@@ -248,10 +248,9 @@ class RecurringTransactionViewModel(
 
         val validAmount = amount ?: return
         val validStartDate = startDate ?: return
+        updateForm { it.copy(isSaving = true, errorMessage = null) }
 
         viewModelScope.launch {
-            updateForm { it.copy(isSaving = true, errorMessage = null) }
-
             runCatching {
                 val now = System.currentTimeMillis()
                 recurringTransactionRepository.upsert(

@@ -17,6 +17,7 @@ import com.sihwani.simpleledger.domain.model.RecurringSkippedOccurrence
 import com.sihwani.simpleledger.domain.model.RecurringTransaction
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionStatus
+import com.sihwani.simpleledger.domain.recurring.RecurringOccurrenceKeys
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -189,17 +190,17 @@ class DataManagementRepository(
         }
 
         val allTransactions = transactionDao.getAll().toDomainList()
-        val existingOccurrenceKeys = allTransactions
+        val occupiedOccurrenceKeys = allTransactions
             .mapNotNull { transaction ->
                 val ruleId = transaction.recurringRuleId ?: return@mapNotNull null
                 val occurrenceKey = transaction.recurringOccurrenceKey ?: return@mapNotNull null
-                occurrenceIdentity(ruleId, occurrenceKey)
+                RecurringOccurrenceKeys.identity(ruleId, occurrenceKey)
             }
             .toSet()
-        val skippedOccurrenceKeys = recurringTransactionDao.getSkippedOccurrences()
+            .toMutableSet()
+        occupiedOccurrenceKeys += recurringTransactionDao.getSkippedOccurrences()
             .toSkippedOccurrenceDomainList()
-            .map { skip -> occurrenceIdentity(skip.recurringRuleId, skip.recurringOccurrenceKey) }
-            .toSet()
+            .map { skip -> RecurringOccurrenceKeys.identity(skip.recurringRuleId, skip.recurringOccurrenceKey) }
         val accounts = accountDao.getAll()
             .toAccountDomainList()
             .associateBy { account -> account.id }
@@ -210,9 +211,9 @@ class DataManagementRepository(
                 rule = rule,
                 horizon = horizon
             ).mapNotNull { occurrenceDate ->
-                val occurrenceKey = occurrenceDate.toString()
-                val identity = occurrenceIdentity(rule.id, occurrenceKey)
-                if (identity in existingOccurrenceKeys || identity in skippedOccurrenceKeys) {
+                val occurrenceKey = RecurringOccurrenceKeys.keyFor(occurrenceDate)
+                val identity = RecurringOccurrenceKeys.identity(rule.id, occurrenceKey)
+                if (!occupiedOccurrenceKeys.add(identity)) {
                     return@mapNotNull null
                 }
 
@@ -228,7 +229,7 @@ class DataManagementRepository(
         }
 
         if (transactionsToCreate.isNotEmpty()) {
-            transactionDao.upsertAll(transactionsToCreate.map { transaction -> transaction.toEntity() })
+            transactionDao.insertAllIgnoreConflicts(transactionsToCreate.map { transaction -> transaction.toEntity() })
         }
     }
 
@@ -324,7 +325,7 @@ class DataManagementRepository(
         today: LocalDate
     ): Transaction {
         return Transaction(
-            id = "recurring-${id}-$occurrenceKey",
+            id = RecurringOccurrenceKeys.transactionId(id, occurrenceKey),
             type = type,
             title = title,
             amount = amount,
@@ -346,10 +347,6 @@ class DataManagementRepository(
             recurringRuleId = id,
             recurringOccurrenceKey = occurrenceKey
         )
-    }
-
-    private fun occurrenceIdentity(ruleId: String, occurrenceKey: String): String {
-        return "$ruleId|$occurrenceKey"
     }
 
     private fun sanitizeImportedTransactions(
