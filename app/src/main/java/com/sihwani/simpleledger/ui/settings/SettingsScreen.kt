@@ -2,6 +2,7 @@
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import com.sihwani.simpleledger.domain.layout.ScreenLayoutPreference
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
 import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutDefaults
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutMode
+import com.sihwani.simpleledger.ui.adaptive.resolveAdaptiveLayoutMode
 import com.sihwani.simpleledger.ui.history.DataManagementSection
 import com.sihwani.simpleledger.ui.history.DataManagementUiState
 import com.sihwani.simpleledger.util.DateUtils
@@ -82,17 +87,29 @@ fun SettingsScreen(
             .background(Color(0xFFF6F7F9))
     ) {
         val availableWidth = maxWidth
+        val adaptiveLayoutMode = resolveAdaptiveLayoutMode(
+            preference = uiState.screenLayoutPreference,
+            availableWidth = availableWidth
+        )
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            SettingsHeader(onBack = onBack)
-            DataManagementSection(
-                uiState = dataManagementUiState,
+        if (adaptiveLayoutMode == AdaptiveLayoutMode.WIDE) {
+            WideSettingsContent(
+                uiState = uiState,
+                dataManagementUiState = dataManagementUiState,
+                availableWidth = availableWidth,
+                versionName = versionName,
+                versionCode = versionCode,
+                packageName = packageName,
+                showDebugPremiumToggle = showDebugPremiumToggle,
+                showDebugDateTools = showDebugDateTools,
+                onBack = onBack,
+                onOpenAccounts = onOpenAccounts,
+                onOpenRecurringTransactions = onOpenRecurringTransactions,
+                onDebugPremiumChange = onDebugPremiumChange,
+                onDebugDateSelected = onDebugDateSelected,
+                onClearDebugDate = onClearDebugDate,
+                onRunScheduledSync = onRunScheduledSync,
+                onScreenLayoutPreferenceChange = onScreenLayoutPreferenceChange,
                 onExportBackup = onExportBackup,
                 onImportBackup = onImportBackup,
                 onMergeImport = onMergeImport,
@@ -104,37 +121,257 @@ fun SettingsScreen(
                 onConfirmDeleteAll = onConfirmDeleteAll,
                 onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
             )
-            AccountManagementEntry(onOpenAccounts = onOpenAccounts)
-            RecurringManagementEntry(onOpenRecurringTransactions = onOpenRecurringTransactions)
-            ReceiptSection(receiptImageCount = uiState.receiptImageCount)
-            AppSettingsSection(
+        } else {
+            CompactSettingsContent(
+                uiState = uiState,
+                dataManagementUiState = dataManagementUiState,
                 availableWidth = availableWidth,
-                screenLayoutPreference = uiState.screenLayoutPreference,
-                onScreenLayoutPreferenceChange = onScreenLayoutPreferenceChange
-            )
-            PremiumSection(
-                isPremium = uiState.isPremium,
-                showDebugPremiumToggle = showDebugPremiumToggle,
-                onDebugPremiumChange = onDebugPremiumChange
-            )
-            AppInfoSection(
                 versionName = versionName,
                 versionCode = versionCode,
-                packageName = packageName
+                packageName = packageName,
+                showDebugPremiumToggle = showDebugPremiumToggle,
+                showDebugDateTools = showDebugDateTools,
+                onBack = onBack,
+                onOpenAccounts = onOpenAccounts,
+                onOpenRecurringTransactions = onOpenRecurringTransactions,
+                onDebugPremiumChange = onDebugPremiumChange,
+                onDebugDateSelected = onDebugDateSelected,
+                onClearDebugDate = onClearDebugDate,
+                onRunScheduledSync = onRunScheduledSync,
+                onScreenLayoutPreferenceChange = onScreenLayoutPreferenceChange,
+                onExportBackup = onExportBackup,
+                onImportBackup = onImportBackup,
+                onMergeImport = onMergeImport,
+                onRequestReplaceImport = onRequestReplaceImport,
+                onConfirmReplaceImport = onConfirmReplaceImport,
+                onDismissImportModeDialog = onDismissImportModeDialog,
+                onDismissReplaceConfirmDialog = onDismissReplaceConfirmDialog,
+                onRequestDeleteAll = onRequestDeleteAll,
+                onConfirmDeleteAll = onConfirmDeleteAll,
+                onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
             )
-            if (showDebugDateTools) {
-                DebugDateToolsSection(
-                    currentDateIso = uiState.currentDateIso,
-                    isUsingTestDate = uiState.isUsingTestDate,
-                    message = uiState.debugDateMessage,
-                    onDateSelected = onDebugDateSelected,
-                    onClearDate = onClearDebugDate,
-                    onRunScheduledSync = onRunScheduledSync
-                )
-            }
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
+}
+
+@Composable
+private fun CompactSettingsContent(
+    uiState: SettingsUiState,
+    dataManagementUiState: DataManagementUiState,
+    availableWidth: Dp,
+    versionName: String,
+    versionCode: Int,
+    packageName: String,
+    showDebugPremiumToggle: Boolean,
+    showDebugDateTools: Boolean,
+    onBack: () -> Unit,
+    onOpenAccounts: () -> Unit,
+    onOpenRecurringTransactions: () -> Unit,
+    onDebugPremiumChange: (Boolean) -> Unit,
+    onDebugDateSelected: (String) -> Unit,
+    onClearDebugDate: () -> Unit,
+    onRunScheduledSync: () -> Unit,
+    onScreenLayoutPreferenceChange: (ScreenLayoutPreference) -> Unit,
+    onExportBackup: (String) -> Unit,
+    onImportBackup: (String) -> Unit,
+    onMergeImport: () -> Unit,
+    onRequestReplaceImport: () -> Unit,
+    onConfirmReplaceImport: () -> Unit,
+    onDismissImportModeDialog: () -> Unit,
+    onDismissReplaceConfirmDialog: () -> Unit,
+    onRequestDeleteAll: () -> Unit,
+    onConfirmDeleteAll: () -> Unit,
+    onDismissDeleteAllConfirmDialog: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        SettingsHeader(onBack = onBack)
+        SettingsDataManagementGroup(
+            uiState = dataManagementUiState,
+            onExportBackup = onExportBackup,
+            onImportBackup = onImportBackup,
+            onMergeImport = onMergeImport,
+            onRequestReplaceImport = onRequestReplaceImport,
+            onConfirmReplaceImport = onConfirmReplaceImport,
+            onDismissImportModeDialog = onDismissImportModeDialog,
+            onDismissReplaceConfirmDialog = onDismissReplaceConfirmDialog,
+            onRequestDeleteAll = onRequestDeleteAll,
+            onConfirmDeleteAll = onConfirmDeleteAll,
+            onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
+        )
+        AccountManagementEntry(onOpenAccounts = onOpenAccounts)
+        RecurringManagementEntry(onOpenRecurringTransactions = onOpenRecurringTransactions)
+        ReceiptSection(receiptImageCount = uiState.receiptImageCount)
+        AppSettingsSection(
+            availableWidth = availableWidth,
+            screenLayoutPreference = uiState.screenLayoutPreference,
+            onScreenLayoutPreferenceChange = onScreenLayoutPreferenceChange
+        )
+        PremiumSection(
+            isPremium = uiState.isPremium,
+            showDebugPremiumToggle = showDebugPremiumToggle,
+            onDebugPremiumChange = onDebugPremiumChange
+        )
+        AppInfoSection(
+            versionName = versionName,
+            versionCode = versionCode,
+            packageName = packageName
+        )
+        if (showDebugDateTools) {
+            DebugDateToolsSection(
+                currentDateIso = uiState.currentDateIso,
+                isUsingTestDate = uiState.isUsingTestDate,
+                message = uiState.debugDateMessage,
+                onDateSelected = onDebugDateSelected,
+                onClearDate = onClearDebugDate,
+                onRunScheduledSync = onRunScheduledSync
+            )
+        }
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun WideSettingsContent(
+    uiState: SettingsUiState,
+    dataManagementUiState: DataManagementUiState,
+    availableWidth: Dp,
+    versionName: String,
+    versionCode: Int,
+    packageName: String,
+    showDebugPremiumToggle: Boolean,
+    showDebugDateTools: Boolean,
+    onBack: () -> Unit,
+    onOpenAccounts: () -> Unit,
+    onOpenRecurringTransactions: () -> Unit,
+    onDebugPremiumChange: (Boolean) -> Unit,
+    onDebugDateSelected: (String) -> Unit,
+    onClearDebugDate: () -> Unit,
+    onRunScheduledSync: () -> Unit,
+    onScreenLayoutPreferenceChange: (ScreenLayoutPreference) -> Unit,
+    onExportBackup: (String) -> Unit,
+    onImportBackup: (String) -> Unit,
+    onMergeImport: () -> Unit,
+    onRequestReplaceImport: () -> Unit,
+    onConfirmReplaceImport: () -> Unit,
+    onDismissImportModeDialog: () -> Unit,
+    onDismissReplaceConfirmDialog: () -> Unit,
+    onRequestDeleteAll: () -> Unit,
+    onConfirmDeleteAll: () -> Unit,
+    onDismissDeleteAllConfirmDialog: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = AdaptiveLayoutDefaults.WideContentMaxWidth)
+                .fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                SettingsHeader(onBack = onBack)
+                SettingsDataManagementGroup(
+                    uiState = dataManagementUiState,
+                    onExportBackup = onExportBackup,
+                    onImportBackup = onImportBackup,
+                    onMergeImport = onMergeImport,
+                    onRequestReplaceImport = onRequestReplaceImport,
+                    onConfirmReplaceImport = onConfirmReplaceImport,
+                    onDismissImportModeDialog = onDismissImportModeDialog,
+                    onDismissReplaceConfirmDialog = onDismissReplaceConfirmDialog,
+                    onRequestDeleteAll = onRequestDeleteAll,
+                    onConfirmDeleteAll = onConfirmDeleteAll,
+                    onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
+                )
+                AccountManagementEntry(onOpenAccounts = onOpenAccounts)
+                RecurringManagementEntry(onOpenRecurringTransactions = onOpenRecurringTransactions)
+                ReceiptSection(receiptImageCount = uiState.receiptImageCount)
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                AppSettingsSection(
+                    availableWidth = availableWidth,
+                    screenLayoutPreference = uiState.screenLayoutPreference,
+                    onScreenLayoutPreferenceChange = onScreenLayoutPreferenceChange
+                )
+                PremiumSection(
+                    isPremium = uiState.isPremium,
+                    showDebugPremiumToggle = showDebugPremiumToggle,
+                    onDebugPremiumChange = onDebugPremiumChange
+                )
+                AppInfoSection(
+                    versionName = versionName,
+                    versionCode = versionCode,
+                    packageName = packageName
+                )
+                if (showDebugDateTools) {
+                    DebugDateToolsSection(
+                        currentDateIso = uiState.currentDateIso,
+                        isUsingTestDate = uiState.isUsingTestDate,
+                        message = uiState.debugDateMessage,
+                        onDateSelected = onDebugDateSelected,
+                        onClearDate = onClearDebugDate,
+                        onRunScheduledSync = onRunScheduledSync
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsDataManagementGroup(
+    uiState: DataManagementUiState,
+    onExportBackup: (String) -> Unit,
+    onImportBackup: (String) -> Unit,
+    onMergeImport: () -> Unit,
+    onRequestReplaceImport: () -> Unit,
+    onConfirmReplaceImport: () -> Unit,
+    onDismissImportModeDialog: () -> Unit,
+    onDismissReplaceConfirmDialog: () -> Unit,
+    onRequestDeleteAll: () -> Unit,
+    onConfirmDeleteAll: () -> Unit,
+    onDismissDeleteAllConfirmDialog: () -> Unit
+) {
+    DataManagementSection(
+        uiState = uiState,
+        onExportBackup = onExportBackup,
+        onImportBackup = onImportBackup,
+        onMergeImport = onMergeImport,
+        onRequestReplaceImport = onRequestReplaceImport,
+        onConfirmReplaceImport = onConfirmReplaceImport,
+        onDismissImportModeDialog = onDismissImportModeDialog,
+        onDismissReplaceConfirmDialog = onDismissReplaceConfirmDialog,
+        onRequestDeleteAll = onRequestDeleteAll,
+        onConfirmDeleteAll = onConfirmDeleteAll,
+        onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
+    )
 }
 
 @Composable

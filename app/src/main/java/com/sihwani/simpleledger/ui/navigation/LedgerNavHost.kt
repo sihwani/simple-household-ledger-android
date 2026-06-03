@@ -208,9 +208,13 @@ fun LedgerNavHost(
                 )
             )
             val uiState by historyViewModel.uiState.collectAsState()
+            val screenLayoutPreference by screenLayoutPreferenceRepository
+                .screenLayoutPreference
+                .collectAsState()
 
             HistoryScreen(
                 uiState = uiState,
+                screenLayoutPreference = screenLayoutPreference,
                 onBack = { navController.popBackStack() },
                 onTransactionClick = { transactionId ->
                     navController.navigate(LedgerRoutes.transactionDetail(transactionId))
@@ -389,6 +393,9 @@ fun LedgerNavHost(
                 )
             )
             val uiState by detailViewModel.uiState.collectAsState()
+            val screenLayoutPreference by screenLayoutPreferenceRepository
+                .screenLayoutPreference
+                .collectAsState()
 
             LaunchedEffect(uiState.deleteCompleted) {
                 if (uiState.deleteCompleted) {
@@ -401,6 +408,7 @@ fun LedgerNavHost(
 
             TransactionDetailScreen(
                 uiState = uiState,
+                screenLayoutPreference = screenLayoutPreference,
                 onBack = { navController.popBackStack() },
                 onEdit = { navController.navigate(LedgerRoutes.transactionEdit(transactionId)) },
                 onDeleteClick = detailViewModel::requestDelete,

@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -37,16 +40,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.sihwani.simpleledger.domain.layout.ScreenLayoutPreference
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutDefaults
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutMode
+import com.sihwani.simpleledger.ui.adaptive.resolveAdaptiveLayoutMode
 import com.sihwani.simpleledger.util.DateUtils
 import com.sihwani.simpleledger.util.MoneyFormatter
 
 @Composable
 fun HistoryScreen(
     uiState: HistoryUiState,
+    screenLayoutPreference: ScreenLayoutPreference,
     onBack: () -> Unit,
     onTransactionClick: (String) -> Unit,
     onRequestMonthlyPdf: (String) -> Unit,
@@ -81,43 +89,33 @@ fun HistoryScreen(
         }
     }
 
-    Column(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFFF6F7F9))
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        HistoryHeader(onBack = onBack)
+        val adaptiveLayoutMode = resolveAdaptiveLayoutMode(
+            preference = screenLayoutPreference,
+            availableWidth = maxWidth
+        )
 
-        uiState.pdfMessage?.let { message ->
-            PdfStatusCard(message = message)
-        }
-
-        when {
-            uiState.isLoading -> HistoryNotice(
-                title = "내역을 불러오는 중입니다.",
-                description = null
+        if (adaptiveLayoutMode == AdaptiveLayoutMode.WIDE) {
+            WideHistoryContent(
+                uiState = uiState,
+                onBack = onBack,
+                onRequestYearlyPdf = onRequestYearlyPdf,
+                onRequestMonthlyPdf = onRequestMonthlyPdf,
+                onTransactionClick = onTransactionClick
             )
-
-            uiState.yearSections.isEmpty() -> HistoryNotice(
-                title = "아직 기록된 내역이 없습니다.",
-                description = "수입이나 지출을 먼저 추가해보세요."
+        } else {
+            CompactHistoryContent(
+                uiState = uiState,
+                onBack = onBack,
+                onRequestYearlyPdf = onRequestYearlyPdf,
+                onRequestMonthlyPdf = onRequestMonthlyPdf,
+                onTransactionClick = onTransactionClick
             )
-
-            else -> uiState.yearSections.forEach { section ->
-                YearHistorySectionCard(
-                    section = section,
-                    isExportingPdf = uiState.isExportingPdf,
-                    onRequestYearlyPdf = onRequestYearlyPdf,
-                    onRequestMonthlyPdf = onRequestMonthlyPdf,
-                    onTransactionClick = onTransactionClick
-                )
-            }
         }
-
-        Spacer(modifier = Modifier.height(48.dp))
     }
 
     uiState.pendingPdfRequest?.let { request ->
@@ -133,6 +131,166 @@ fun HistoryScreen(
 
     if (uiState.showPdfPremiumDialog) {
         PdfPremiumDialog(onDismiss = onDismissPdfPremiumDialog)
+    }
+}
+
+@Composable
+private fun CompactHistoryContent(
+    uiState: HistoryUiState,
+    onBack: () -> Unit,
+    onRequestYearlyPdf: (Int) -> Unit,
+    onRequestMonthlyPdf: (String) -> Unit,
+    onTransactionClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        HistoryHeader(onBack = onBack)
+
+        uiState.pdfMessage?.let { message ->
+            PdfStatusCard(message = message)
+        }
+
+        HistoryYearSections(
+            uiState = uiState,
+            isExportingPdf = uiState.isExportingPdf,
+            onRequestYearlyPdf = onRequestYearlyPdf,
+            onRequestMonthlyPdf = onRequestMonthlyPdf,
+            onTransactionClick = onTransactionClick
+        )
+
+        Spacer(modifier = Modifier.height(48.dp))
+    }
+}
+
+@Composable
+private fun WideHistoryContent(
+    uiState: HistoryUiState,
+    onBack: () -> Unit,
+    onRequestYearlyPdf: (Int) -> Unit,
+    onRequestMonthlyPdf: (String) -> Unit,
+    onTransactionClick: (String) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = AdaptiveLayoutDefaults.WideContentMaxWidth)
+                .fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(0.9f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                HistoryHeader(onBack = onBack)
+
+                uiState.pdfMessage?.let { message ->
+                    PdfStatusCard(message = message)
+                }
+
+                HistoryOverviewCard(uiState = uiState)
+                HistoryGuideCard()
+
+                when {
+                    uiState.isLoading -> HistoryNotice(
+                        title = "내역을 불러오는 중입니다.",
+                        description = null
+                    )
+
+                    uiState.yearSections.isEmpty() -> HistoryNotice(
+                        title = "아직 기록된 내역이 없습니다.",
+                        description = "수입이나 지출을 먼저 추가해보세요."
+                    )
+
+                    else -> uiState.yearSections.forEach { section ->
+                        YearSummaryCard(
+                            section = section,
+                            isExportingPdf = uiState.isExportingPdf,
+                            onRequestYearlyPdf = onRequestYearlyPdf
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1.1f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                when {
+                    uiState.isLoading -> HistoryNotice(
+                        title = "월별 내역을 불러오는 중입니다.",
+                        description = null
+                    )
+
+                    uiState.yearSections.isEmpty() -> HistoryNotice(
+                        title = "거래 내역 없음",
+                        description = "거래가 추가되면 월별 정산과 목록이 여기에 표시됩니다."
+                    )
+
+                    else -> uiState.sections.forEach { section ->
+                        MonthlyHistorySectionCard(
+                            section = section,
+                            isExportingPdf = uiState.isExportingPdf,
+                            onRequestMonthlyPdf = onRequestMonthlyPdf,
+                            onTransactionClick = onTransactionClick
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryYearSections(
+    uiState: HistoryUiState,
+    isExportingPdf: Boolean,
+    onRequestYearlyPdf: (Int) -> Unit,
+    onRequestMonthlyPdf: (String) -> Unit,
+    onTransactionClick: (String) -> Unit
+) {
+    when {
+        uiState.isLoading -> HistoryNotice(
+            title = "내역을 불러오는 중입니다.",
+            description = null
+        )
+
+        uiState.yearSections.isEmpty() -> HistoryNotice(
+            title = "아직 기록된 내역이 없습니다.",
+            description = "수입이나 지출을 먼저 추가해보세요."
+        )
+
+        else -> uiState.yearSections.forEach { section ->
+            YearHistorySectionCard(
+                section = section,
+                isExportingPdf = isExportingPdf,
+                onRequestYearlyPdf = onRequestYearlyPdf,
+                onRequestMonthlyPdf = onRequestMonthlyPdf,
+                onTransactionClick = onTransactionClick
+            )
+        }
     }
 }
 
@@ -159,6 +317,91 @@ private fun HistoryHeader(
             fontWeight = FontWeight.ExtraBold,
             color = Color(0xFF18181B)
         )
+    }
+}
+
+@Composable
+private fun HistoryOverviewCard(
+    uiState: HistoryUiState
+) {
+    val transactionCount = uiState.sections.sumOf { section -> section.transactions.size }
+    val monthCount = uiState.sections.size
+    val yearCount = uiState.yearSections.size
+    val pdfTrialText = if (uiState.isPremium) {
+        "프리미엄 상태에서는 PDF를 제한 없이 만들 수 있습니다."
+    } else {
+        "PDF 무료 체험 ${uiState.pdfTrialRemaining}회 남음"
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF18181B)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "전체 거래",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD4D4D8)
+            )
+            Text(
+                text = if (uiState.isLoading) "불러오는 중" else "${transactionCount}건",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "연도 ${yearCount}개 · 월 ${monthCount}개",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD4D4D8),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = pdfTrialText,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD4D4D8),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun HistoryGuideCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "연도별 정산",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF18181B)
+            )
+            Text(
+                text = "왼쪽에서 연도별 수입과 지출 흐름을 확인하고, 오른쪽에서 월별 거래와 월 PDF를 관리할 수 있습니다.",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF71717A)
+            )
+        }
     }
 }
 
@@ -600,6 +843,7 @@ private fun HistoryScreenPreview() {
                         )
                     )
                 ),
+                screenLayoutPreference = ScreenLayoutPreference.AUTO,
                 onBack = {},
                 onTransactionClick = {},
                 onRequestMonthlyPdf = {},

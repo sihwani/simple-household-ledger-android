@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -47,9 +49,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import com.sihwani.simpleledger.domain.layout.ScreenLayoutPreference
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutDefaults
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutMode
+import com.sihwani.simpleledger.ui.adaptive.resolveAdaptiveLayoutMode
 import com.sihwani.simpleledger.util.DateUtils
 import com.sihwani.simpleledger.util.MoneyFormatter
 import java.io.File
@@ -57,6 +63,7 @@ import java.io.File
 @Composable
 fun TransactionDetailScreen(
     uiState: TransactionDetailUiState,
+    screenLayoutPreference: ScreenLayoutPreference,
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -66,47 +73,33 @@ fun TransactionDetailScreen(
 ) {
     var enlargedReceiptPath by rememberSaveable { mutableStateOf<String?>(null) }
 
-    Column(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFFF6F7F9))
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        DetailHeader(onBack = onBack)
+        val adaptiveLayoutMode = resolveAdaptiveLayoutMode(
+            preference = screenLayoutPreference,
+            availableWidth = maxWidth
+        )
 
-        when {
-            uiState.isLoading -> DetailNotice(text = "내역을 불러오는 중입니다.")
-            uiState.notFound -> DetailNotice(text = "내역을 찾을 수 없습니다.")
-            uiState.transaction != null -> {
-                TransactionDetailContent(
-                    transaction = uiState.transaction,
-                    accountLabel = uiState.accountLabel,
-                    onEdit = onEdit,
-                    onDeleteClick = onDeleteClick,
-                    onReceiptClick = { receiptPath -> enlargedReceiptPath = receiptPath }
-                )
-            }
-        }
-
-        uiState.errorMessage?.let { message ->
-            Text(
-                text = message,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = Color(0xFFFFF1F2),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFBE123C)
+        if (adaptiveLayoutMode == AdaptiveLayoutMode.WIDE) {
+            WideTransactionDetailContent(
+                uiState = uiState,
+                onBack = onBack,
+                onEdit = onEdit,
+                onDeleteClick = onDeleteClick,
+                onReceiptClick = { receiptPath -> enlargedReceiptPath = receiptPath }
+            )
+        } else {
+            CompactTransactionDetailContent(
+                uiState = uiState,
+                onBack = onBack,
+                onEdit = onEdit,
+                onDeleteClick = onDeleteClick,
+                onReceiptClick = { receiptPath -> enlargedReceiptPath = receiptPath }
             )
         }
-
-        Spacer(modifier = Modifier.height(18.dp))
     }
 
     if (uiState.showDeleteDialog) {
@@ -141,6 +134,117 @@ fun TransactionDetailScreen(
             receiptImagePath = receiptPath,
             onDismiss = { enlargedReceiptPath = null }
         )
+    }
+}
+
+@Composable
+private fun CompactTransactionDetailContent(
+    uiState: TransactionDetailUiState,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onReceiptClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        DetailHeader(onBack = onBack)
+
+        when {
+            uiState.isLoading -> DetailNotice(text = "내역을 불러오는 중입니다.")
+            uiState.notFound -> DetailNotice(text = "내역을 찾을 수 없습니다.")
+            uiState.transaction != null -> {
+                TransactionDetailContent(
+                    transaction = uiState.transaction,
+                    accountLabel = uiState.accountLabel,
+                    onEdit = onEdit,
+                    onDeleteClick = onDeleteClick,
+                    onReceiptClick = onReceiptClick
+                )
+            }
+        }
+
+        uiState.errorMessage?.let { message ->
+            DetailErrorMessage(message = message)
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun WideTransactionDetailContent(
+    uiState: TransactionDetailUiState,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onReceiptClick: (String) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = AdaptiveLayoutDefaults.WideContentMaxWidth)
+                .fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(0.9f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                DetailHeader(onBack = onBack)
+
+                when {
+                    uiState.isLoading -> DetailNotice(text = "내역을 불러오는 중입니다.")
+                    uiState.notFound -> DetailNotice(text = "내역을 찾을 수 없습니다.")
+                    uiState.transaction != null -> {
+                        TransactionPrimaryInfoCard(
+                            transaction = uiState.transaction,
+                            accountLabel = uiState.accountLabel,
+                            onEdit = onEdit,
+                            onDeleteClick = onDeleteClick
+                        )
+                    }
+                }
+
+                uiState.errorMessage?.let { message ->
+                    DetailErrorMessage(message = message)
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1.1f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                uiState.transaction?.let { transaction ->
+                    TransactionSupportInfoCard(
+                        transaction = transaction,
+                        onReceiptClick = onReceiptClick
+                    )
+                } ?: DetailNotice(text = "보조 정보가 여기에 표시됩니다.")
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
     }
 }
 
@@ -279,6 +383,164 @@ private fun TransactionDetailContent(
             }
         }
     }
+}
+
+@Composable
+private fun TransactionPrimaryInfoCard(
+    transaction: Transaction,
+    accountLabel: String?,
+    onEdit: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    val amountColor = when (transaction.type) {
+        TransactionType.INCOME -> Color(0xFF047857)
+        TransactionType.EXPENSE -> Color(0xFFBE123C)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = typeLabel(transaction.type),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = amountColor
+                )
+                Text(
+                    text = transaction.title,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF18181B),
+                    overflow = TextOverflow.Clip
+                )
+                Text(
+                    text = MoneyFormatter.formatWon(transaction.amount),
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = amountColor,
+                    overflow = TextOverflow.Clip
+                )
+            }
+
+            DetailRow(label = "날짜", value = DateUtils.formatFullDate(transaction.date))
+            DetailRow(label = "상태", value = transactionStatusLabel(transaction))
+            recurringDescription(transaction)?.let { description ->
+                RecurringDetailNotice(text = description)
+            }
+            DetailRow(label = "계좌/지갑", value = accountLabel ?: "선택 안 함")
+            DetailRow(label = "카테고리", value = transaction.category)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
+                ) {
+                    Text(
+                        text = "수정",
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                OutlinedButton(
+                    onClick = onDeleteClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626))
+                ) {
+                    Text(
+                        text = "삭제",
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionSupportInfoCard(
+    transaction: Transaction,
+    onReceiptClick: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            DetailRow(
+                label = "메모",
+                value = transaction.memo?.takeIf { it.isNotBlank() } ?: "메모 없음"
+            )
+
+            if (transaction.type == TransactionType.EXPENSE) {
+                transaction.receiptImagePath?.let { receiptImagePath ->
+                    ReceiptImageCard(
+                        receiptImagePath = receiptImagePath,
+                        onClick = { onReceiptClick(receiptImagePath) }
+                    )
+                } ?: ReceiptEmptyNotice()
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecurringDetailNotice(
+    text: String
+) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = Color(0xFFF4F4F5),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Bold,
+        color = Color(0xFF71717A)
+    )
+}
+
+@Composable
+private fun ReceiptEmptyNotice() {
+    Text(
+        text = "첨부된 영수증이 없습니다.",
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = Color(0xFFF9FAFB),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = Color(0xFF71717A)
+    )
 }
 
 @Composable
@@ -456,6 +718,25 @@ private fun DetailNotice(
     )
 }
 
+@Composable
+private fun DetailErrorMessage(
+    message: String
+) {
+    Text(
+        text = message,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = Color(0xFFFFF1F2),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Bold,
+        color = Color(0xFFBE123C)
+    )
+}
+
 private fun typeLabel(type: TransactionType): String {
     return when (type) {
         TransactionType.INCOME -> "수입"
@@ -507,6 +788,7 @@ private fun TransactionDetailScreenPreview() {
                         updatedAt = null
                     )
                 ),
+                screenLayoutPreference = ScreenLayoutPreference.AUTO,
                 onBack = {},
                 onEdit = {},
                 onDeleteClick = {},
