@@ -290,9 +290,13 @@ fun LedgerNavHost(
                 )
             )
             val uiState by accountManagementViewModel.uiState.collectAsState()
+            val screenLayoutPreference by screenLayoutPreferenceRepository
+                .screenLayoutPreference
+                .collectAsState()
 
             AccountManagementScreen(
                 uiState = uiState,
+                screenLayoutPreference = screenLayoutPreference,
                 onBack = { navController.popBackStack() },
                 onAddAccount = accountManagementViewModel::requestAddAccount,
                 onEditAccount = accountManagementViewModel::requestEditAccount,
@@ -329,9 +333,13 @@ fun LedgerNavHost(
                 )
             )
             val uiState by recurringViewModel.uiState.collectAsState()
+            val screenLayoutPreference by screenLayoutPreferenceRepository
+                .screenLayoutPreference
+                .collectAsState()
 
             RecurringTransactionScreen(
                 uiState = uiState,
+                screenLayoutPreference = screenLayoutPreference,
                 onBack = { navController.popBackStack() },
                 onAddRule = recurringViewModel::requestAddRule,
                 onEditRule = recurringViewModel::requestEditRule,

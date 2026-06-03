@@ -2,6 +2,8 @@ package com.sihwani.simpleledger.ui.recurring
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -36,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -43,11 +47,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.sihwani.simpleledger.domain.layout.ScreenLayoutPreference
 import com.sihwani.simpleledger.domain.model.Account
 import com.sihwani.simpleledger.domain.model.RecurringRepeatType
 import com.sihwani.simpleledger.domain.model.RecurringTransaction
 import com.sihwani.simpleledger.domain.model.TransactionType
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutDefaults
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutMode
+import com.sihwani.simpleledger.ui.adaptive.resolveAdaptiveLayoutMode
 import com.sihwani.simpleledger.util.AccountFormatter
 import com.sihwani.simpleledger.util.DateUtils
 import com.sihwani.simpleledger.util.MoneyFormatter
@@ -55,6 +63,7 @@ import com.sihwani.simpleledger.util.MoneyFormatter
 @Composable
 fun RecurringTransactionScreen(
     uiState: RecurringTransactionUiState,
+    screenLayoutPreference: ScreenLayoutPreference,
     onBack: () -> Unit,
     onAddRule: () -> Unit,
     onEditRule: (String) -> Unit,
@@ -82,97 +91,39 @@ fun RecurringTransactionScreen(
     onSaveRule: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFFF6F7F9))
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        RecurringHeader(onBack = onBack)
-        RecurringNoticeCard()
+        val adaptiveLayoutMode = resolveAdaptiveLayoutMode(
+            preference = screenLayoutPreference,
+            availableWidth = maxWidth
+        )
 
-        uiState.message?.let { message ->
-            MessageCard(message = message)
-        }
-
-        Button(
-            onClick = onAddRule,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
-        ) {
-            Text(
-                text = "반복 거래 추가",
-                fontWeight = FontWeight.ExtraBold
+        if (adaptiveLayoutMode == AdaptiveLayoutMode.WIDE) {
+            WideRecurringTransactionContent(
+                uiState = uiState,
+                onBack = onBack,
+                onAddRule = onAddRule,
+                onEditRule = onEditRule,
+                onRequestDeactivate = onRequestDeactivate,
+                onToggleInactiveRules = onToggleInactiveRules,
+                onRequestReactivate = onRequestReactivate,
+                onRequestDelete = onRequestDelete
             )
-        }
-
-        if (!uiState.isPremium) {
-            Text(
-                text = "무료 상태에서는 활성 반복 거래 ${PremiumPolicy.FreeRecurringRuleLimit}개까지 체험할 수 있습니다.",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF71717A)
-            )
-        }
-
-        SectionTitle(text = "활성 반복 거래")
-
-        if (uiState.activeRules.isEmpty()) {
-            EmptyRecurringCard()
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                uiState.activeRules.forEach { item ->
-                    RecurringRuleCard(
-                        item = item,
-                        statusText = null,
-                        onEdit = { onEditRule(item.rule.id) },
-                        onDeactivate = { onRequestDeactivate(item.rule.id) },
-                        onReactivate = null,
-                        onDelete = { onRequestDelete(item.rule.id) }
-                    )
-                }
-            }
+            CompactRecurringTransactionContent(
+                uiState = uiState,
+                onBack = onBack,
+                onAddRule = onAddRule,
+                onEditRule = onEditRule,
+                onRequestDeactivate = onRequestDeactivate,
+                onToggleInactiveRules = onToggleInactiveRules,
+                onRequestReactivate = onRequestReactivate,
+                onRequestDelete = onRequestDelete
+            )
         }
-
-        if (uiState.inactiveRules.isNotEmpty()) {
-            OutlinedButton(
-                onClick = onToggleInactiveRules,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = if (uiState.showInactiveRules) {
-                        "비활성 반복 거래 숨기기"
-                    } else {
-                        "비활성 반복 거래 ${uiState.inactiveRules.size}개 보기"
-                    },
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-
-            if (uiState.showInactiveRules) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SectionTitle(text = "비활성 반복 거래")
-                    uiState.inactiveRules.forEach { item ->
-                        RecurringRuleCard(
-                            item = item,
-                            statusText = "비활성 반복 거래",
-                            onEdit = { onEditRule(item.rule.id) },
-                            onDeactivate = null,
-                            onReactivate = { onRequestReactivate(item.rule.id) },
-                            onDelete = { onRequestDelete(item.rule.id) }
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 
     uiState.form?.let { form ->
@@ -248,6 +199,305 @@ fun RecurringTransactionScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun CompactRecurringTransactionContent(
+    uiState: RecurringTransactionUiState,
+    onBack: () -> Unit,
+    onAddRule: () -> Unit,
+    onEditRule: (String) -> Unit,
+    onRequestDeactivate: (String) -> Unit,
+    onToggleInactiveRules: () -> Unit,
+    onRequestReactivate: (String) -> Unit,
+    onRequestDelete: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        RecurringHeader(onBack = onBack)
+        RecurringNoticeCard()
+
+        uiState.message?.let { message ->
+            MessageCard(message = message)
+        }
+
+        RecurringAddButton(onAddRule = onAddRule)
+        RecurringLimitNotice(isPremium = uiState.isPremium)
+        ActiveRecurringRulesSection(
+            activeRules = uiState.activeRules,
+            onEditRule = onEditRule,
+            onRequestDeactivate = onRequestDeactivate,
+            onRequestDelete = onRequestDelete
+        )
+        InactiveRecurringRulesSection(
+            inactiveRules = uiState.inactiveRules,
+            showInactiveRules = uiState.showInactiveRules,
+            onToggleInactiveRules = onToggleInactiveRules,
+            onEditRule = onEditRule,
+            onRequestReactivate = onRequestReactivate,
+            onRequestDelete = onRequestDelete
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun WideRecurringTransactionContent(
+    uiState: RecurringTransactionUiState,
+    onBack: () -> Unit,
+    onAddRule: () -> Unit,
+    onEditRule: (String) -> Unit,
+    onRequestDeactivate: (String) -> Unit,
+    onToggleInactiveRules: () -> Unit,
+    onRequestReactivate: (String) -> Unit,
+    onRequestDelete: (String) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = AdaptiveLayoutDefaults.WideContentMaxWidth)
+                .fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(0.9f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                RecurringHeader(onBack = onBack)
+                RecurringOverviewCard(uiState = uiState)
+
+                uiState.message?.let { message ->
+                    MessageCard(message = message)
+                }
+
+                RecurringAddButton(onAddRule = onAddRule)
+                RecurringLimitNotice(isPremium = uiState.isPremium)
+                RecurringNoticeCard()
+                RecurringDifferenceCard()
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1.1f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ActiveRecurringRulesSection(
+                    activeRules = uiState.activeRules,
+                    onEditRule = onEditRule,
+                    onRequestDeactivate = onRequestDeactivate,
+                    onRequestDelete = onRequestDelete
+                )
+                InactiveRecurringRulesSection(
+                    inactiveRules = uiState.inactiveRules,
+                    showInactiveRules = uiState.showInactiveRules,
+                    onToggleInactiveRules = onToggleInactiveRules,
+                    onEditRule = onEditRule,
+                    onRequestReactivate = onRequestReactivate,
+                    onRequestDelete = onRequestDelete
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecurringOverviewCard(
+    uiState: RecurringTransactionUiState
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF18181B)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "활성 반복 거래",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD4D4D8)
+            )
+            Text(
+                text = "${uiState.activeRules.size}개",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            )
+            Text(
+                text = "비활성 반복 거래 ${uiState.inactiveRules.size}개",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD4D4D8)
+            )
+            Text(
+                text = if (uiState.isPremium) {
+                    "프리미엄 상태에서는 여러 반복 거래를 등록할 수 있습니다."
+                } else {
+                    "무료 상태에서는 활성 반복 거래 ${PremiumPolicy.FreeRecurringRuleLimit}개까지 체험할 수 있습니다."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD4D4D8)
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecurringAddButton(
+    onAddRule: () -> Unit
+) {
+    Button(
+        onClick = onAddRule,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
+    ) {
+        Text(
+            text = "반복 거래 추가",
+            fontWeight = FontWeight.ExtraBold
+        )
+    }
+}
+
+@Composable
+private fun RecurringLimitNotice(
+    isPremium: Boolean
+) {
+    if (!isPremium) {
+        Text(
+            text = "무료 상태에서는 활성 반복 거래 ${PremiumPolicy.FreeRecurringRuleLimit}개까지 체험할 수 있습니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF71717A)
+        )
+    }
+}
+
+@Composable
+private fun RecurringDifferenceCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "예정 거래와 반복 거래",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF18181B)
+            )
+            Text(
+                text = "예정 거래는 한 번만 반영될 내역이고, 반복 거래는 정해진 주기마다 예정 거래를 자동으로 만듭니다.",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF71717A)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActiveRecurringRulesSection(
+    activeRules: List<RecurringRuleItem>,
+    onEditRule: (String) -> Unit,
+    onRequestDeactivate: (String) -> Unit,
+    onRequestDelete: (String) -> Unit
+) {
+    SectionTitle(text = "활성 반복 거래")
+
+    if (activeRules.isEmpty()) {
+        EmptyRecurringCard()
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            activeRules.forEach { item ->
+                RecurringRuleCard(
+                    item = item,
+                    statusText = null,
+                    onEdit = { onEditRule(item.rule.id) },
+                    onDeactivate = { onRequestDeactivate(item.rule.id) },
+                    onReactivate = null,
+                    onDelete = { onRequestDelete(item.rule.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InactiveRecurringRulesSection(
+    inactiveRules: List<RecurringRuleItem>,
+    showInactiveRules: Boolean,
+    onToggleInactiveRules: () -> Unit,
+    onEditRule: (String) -> Unit,
+    onRequestReactivate: (String) -> Unit,
+    onRequestDelete: (String) -> Unit
+) {
+    if (inactiveRules.isEmpty()) {
+        return
+    }
+
+    OutlinedButton(
+        onClick = onToggleInactiveRules,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = if (showInactiveRules) {
+                "비활성 반복 거래 숨기기"
+            } else {
+                "비활성 반복 거래 ${inactiveRules.size}개 보기"
+            },
+            fontWeight = FontWeight.ExtraBold
+        )
+    }
+
+    if (showInactiveRules) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionTitle(text = "비활성 반복 거래")
+            inactiveRules.forEach { item ->
+                RecurringRuleCard(
+                    item = item,
+                    statusText = "비활성 반복 거래",
+                    onEdit = { onEditRule(item.rule.id) },
+                    onDeactivate = null,
+                    onReactivate = { onRequestReactivate(item.rule.id) },
+                    onDelete = { onRequestDelete(item.rule.id) }
+                )
+            }
+        }
     }
 }
 
@@ -844,6 +1094,7 @@ private fun RecurringTransactionScreenPreview() {
                     ),
                     accounts = listOf(account)
                 ),
+                screenLayoutPreference = ScreenLayoutPreference.AUTO,
                 onBack = {},
                 onAddRule = {},
                 onEditRule = {},

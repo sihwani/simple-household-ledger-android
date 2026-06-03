@@ -2,6 +2,8 @@ package com.sihwani.simpleledger.ui.account
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -33,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -40,8 +44,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.sihwani.simpleledger.domain.layout.ScreenLayoutPreference
 import com.sihwani.simpleledger.domain.model.Account
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutDefaults
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutMode
+import com.sihwani.simpleledger.ui.adaptive.resolveAdaptiveLayoutMode
 import com.sihwani.simpleledger.util.AccountFormatter
 import com.sihwani.simpleledger.util.DateUtils
 import com.sihwani.simpleledger.util.MoneyFormatter
@@ -49,6 +57,7 @@ import com.sihwani.simpleledger.util.MoneyFormatter
 @Composable
 fun AccountManagementScreen(
     uiState: AccountManagementUiState,
+    screenLayoutPreference: ScreenLayoutPreference,
     onBack: () -> Unit,
     onAddAccount: () -> Unit,
     onEditAccount: (String) -> Unit,
@@ -73,107 +82,39 @@ fun AccountManagementScreen(
     onSaveAccount: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFFF6F7F9))
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        AccountHeader(onBack = onBack)
-        AccountNoticeCard()
-
-        uiState.message?.let { message ->
-            MessageCard(message = message)
-        }
-
-        Button(
-            onClick = onAddAccount,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
-        ) {
-            Text(
-                text = "계좌/지갑 추가",
-                fontWeight = FontWeight.ExtraBold
-            )
-        }
-
-        if (!uiState.isPremium) {
-            Text(
-                text = "무료 상태에서는 활성 계좌/지갑 ${PremiumPolicy.FreeAccountLimit}개까지 체험할 수 있습니다.",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF71717A)
-            )
-        }
-
-        Text(
-            text = "활성 계좌",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color(0xFF18181B)
+        val adaptiveLayoutMode = resolveAdaptiveLayoutMode(
+            preference = screenLayoutPreference,
+            availableWidth = maxWidth
         )
 
-        if (uiState.accounts.isEmpty()) {
-            EmptyAccountCard()
+        if (adaptiveLayoutMode == AdaptiveLayoutMode.WIDE) {
+            WideAccountManagementContent(
+                uiState = uiState,
+                onBack = onBack,
+                onAddAccount = onAddAccount,
+                onEditAccount = onEditAccount,
+                onRequestDeactivate = onRequestDeactivate,
+                onToggleInactiveAccounts = onToggleInactiveAccounts,
+                onRequestReactivate = onRequestReactivate,
+                onRequestDelete = onRequestDelete
+            )
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                uiState.accounts.forEach { item ->
-                    AccountCard(
-                        item = item,
-                        statusText = null,
-                        onEdit = { onEditAccount(item.account.id) },
-                        onDeactivate = { onRequestDeactivate(item.account.id) },
-                        onReactivate = null,
-                        onDelete = { onRequestDelete(item.account.id) }
-                    )
-                }
-            }
+            CompactAccountManagementContent(
+                uiState = uiState,
+                onBack = onBack,
+                onAddAccount = onAddAccount,
+                onEditAccount = onEditAccount,
+                onRequestDeactivate = onRequestDeactivate,
+                onToggleInactiveAccounts = onToggleInactiveAccounts,
+                onRequestReactivate = onRequestReactivate,
+                onRequestDelete = onRequestDelete
+            )
         }
-
-        if (uiState.inactiveAccounts.isNotEmpty()) {
-            OutlinedButton(
-                onClick = onToggleInactiveAccounts,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = if (uiState.showInactiveAccounts) {
-                        "비활성 계좌 숨기기"
-                    } else {
-                        "비활성 계좌 ${uiState.inactiveAccounts.size}개 보기"
-                    },
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-
-            if (uiState.showInactiveAccounts) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "비활성 계좌",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF71717A)
-                    )
-                    uiState.inactiveAccounts.forEach { item ->
-                        AccountCard(
-                            item = item,
-                            statusText = "비활성 계좌",
-                            onEdit = { onEditAccount(item.account.id) },
-                            onDeactivate = null,
-                            onReactivate = { onRequestReactivate(item.account.id) },
-                            onDelete = { onRequestDelete(item.account.id) }
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 
     uiState.form?.let { form ->
@@ -242,6 +183,329 @@ fun AccountManagementScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun CompactAccountManagementContent(
+    uiState: AccountManagementUiState,
+    onBack: () -> Unit,
+    onAddAccount: () -> Unit,
+    onEditAccount: (String) -> Unit,
+    onRequestDeactivate: (String) -> Unit,
+    onToggleInactiveAccounts: () -> Unit,
+    onRequestReactivate: (String) -> Unit,
+    onRequestDelete: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        AccountHeader(onBack = onBack)
+        AccountNoticeCard()
+
+        uiState.message?.let { message ->
+            MessageCard(message = message)
+        }
+
+        AccountAddButton(onAddAccount = onAddAccount)
+        AccountLimitNotice(isPremium = uiState.isPremium)
+        ActiveAccountSection(
+            accounts = uiState.accounts,
+            onEditAccount = onEditAccount,
+            onRequestDeactivate = onRequestDeactivate,
+            onRequestDelete = onRequestDelete
+        )
+        InactiveAccountSection(
+            inactiveAccounts = uiState.inactiveAccounts,
+            showInactiveAccounts = uiState.showInactiveAccounts,
+            onToggleInactiveAccounts = onToggleInactiveAccounts,
+            onEditAccount = onEditAccount,
+            onRequestReactivate = onRequestReactivate,
+            onRequestDelete = onRequestDelete
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun WideAccountManagementContent(
+    uiState: AccountManagementUiState,
+    onBack: () -> Unit,
+    onAddAccount: () -> Unit,
+    onEditAccount: (String) -> Unit,
+    onRequestDeactivate: (String) -> Unit,
+    onToggleInactiveAccounts: () -> Unit,
+    onRequestReactivate: (String) -> Unit,
+    onRequestDelete: (String) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = AdaptiveLayoutDefaults.WideContentMaxWidth)
+                .fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(0.9f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                AccountHeader(onBack = onBack)
+                AccountOverviewCard(uiState = uiState)
+
+                uiState.message?.let { message ->
+                    MessageCard(message = message)
+                }
+
+                AccountAddButton(onAddAccount = onAddAccount)
+                AccountLimitNotice(isPremium = uiState.isPremium)
+                AccountNoticeCard()
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1.1f)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ActiveAccountSection(
+                    accounts = uiState.accounts,
+                    onEditAccount = onEditAccount,
+                    onRequestDeactivate = onRequestDeactivate,
+                    onRequestDelete = onRequestDelete
+                )
+                InactiveAccountSection(
+                    inactiveAccounts = uiState.inactiveAccounts,
+                    showInactiveAccounts = uiState.showInactiveAccounts,
+                    onToggleInactiveAccounts = onToggleInactiveAccounts,
+                    onEditAccount = onEditAccount,
+                    onRequestReactivate = onRequestReactivate,
+                    onRequestDelete = onRequestDelete
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountOverviewCard(
+    uiState: AccountManagementUiState
+) {
+    val overview = accountOverviewOf(uiState)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF18181B)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "총 계산 잔액",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD4D4D8)
+            )
+            Text(
+                text = MoneyFormatter.formatWon(overview.totalCalculatedBalance),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (overview.totalCalculatedBalance >= 0L) Color(0xFF34D399) else Color(0xFFFB7185),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "활성 계좌/지갑 ${overview.activeAccountCount}개",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD4D4D8)
+            )
+            Text(
+                text = "${overview.scheduledMonthLabel} 예정 수입 +${MoneyFormatter.formatWon(overview.scheduledIncome)}",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF34D399),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${overview.scheduledMonthLabel} 예정 지출 -${MoneyFormatter.formatWon(overview.scheduledExpense)}",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFB7185),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${overview.scheduledMonthLabel} 말 예상 잔액 ${MoneyFormatter.formatWon(overview.expectedMonthEndBalance)}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+private data class AccountOverviewUiState(
+    val activeAccountCount: Int,
+    val totalCalculatedBalance: Long,
+    val scheduledIncome: Long,
+    val scheduledExpense: Long,
+    val expectedMonthEndBalance: Long,
+    val scheduledMonthLabel: String
+)
+
+private fun accountOverviewOf(
+    uiState: AccountManagementUiState
+): AccountOverviewUiState {
+    val scheduledMonthLabel = uiState.accounts.firstOrNull()?.scheduledMonthLabel
+        ?: DateUtils.formatMonthLabel(DateUtils.currentMonthKey())
+
+    return AccountOverviewUiState(
+        activeAccountCount = uiState.activeAccountCount,
+        totalCalculatedBalance = uiState.accounts.sumOf { item -> item.calculatedBalance },
+        scheduledIncome = uiState.accounts.sumOf { item -> item.scheduledIncome },
+        scheduledExpense = uiState.accounts.sumOf { item -> item.scheduledExpense },
+        expectedMonthEndBalance = uiState.accounts.sumOf { item -> item.expectedMonthEndBalance },
+        scheduledMonthLabel = scheduledMonthLabel
+    )
+}
+
+@Composable
+private fun AccountAddButton(
+    onAddAccount: () -> Unit
+) {
+    Button(
+        onClick = onAddAccount,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
+    ) {
+        Text(
+            text = "계좌/지갑 추가",
+            fontWeight = FontWeight.ExtraBold
+        )
+    }
+}
+
+@Composable
+private fun AccountLimitNotice(
+    isPremium: Boolean
+) {
+    if (!isPremium) {
+        Text(
+            text = "무료 상태에서는 활성 계좌/지갑 ${PremiumPolicy.FreeAccountLimit}개까지 체험할 수 있습니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF71717A)
+        )
+    }
+}
+
+@Composable
+private fun ActiveAccountSection(
+    accounts: List<AccountBalanceItem>,
+    onEditAccount: (String) -> Unit,
+    onRequestDeactivate: (String) -> Unit,
+    onRequestDelete: (String) -> Unit
+) {
+    Text(
+        text = "활성 계좌",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.ExtraBold,
+        color = Color(0xFF18181B)
+    )
+
+    if (accounts.isEmpty()) {
+        EmptyAccountCard()
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            accounts.forEach { item ->
+                AccountCard(
+                    item = item,
+                    statusText = null,
+                    onEdit = { onEditAccount(item.account.id) },
+                    onDeactivate = { onRequestDeactivate(item.account.id) },
+                    onReactivate = null,
+                    onDelete = { onRequestDelete(item.account.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InactiveAccountSection(
+    inactiveAccounts: List<AccountBalanceItem>,
+    showInactiveAccounts: Boolean,
+    onToggleInactiveAccounts: () -> Unit,
+    onEditAccount: (String) -> Unit,
+    onRequestReactivate: (String) -> Unit,
+    onRequestDelete: (String) -> Unit
+) {
+    if (inactiveAccounts.isEmpty()) {
+        return
+    }
+
+    OutlinedButton(
+        onClick = onToggleInactiveAccounts,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = if (showInactiveAccounts) {
+                "비활성 계좌 숨기기"
+            } else {
+                "비활성 계좌 ${inactiveAccounts.size}개 보기"
+            },
+            fontWeight = FontWeight.ExtraBold
+        )
+    }
+
+    if (showInactiveAccounts) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "비활성 계좌",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF71717A)
+            )
+            inactiveAccounts.forEach { item ->
+                AccountCard(
+                    item = item,
+                    statusText = "비활성 계좌",
+                    onEdit = { onEditAccount(item.account.id) },
+                    onDeactivate = null,
+                    onReactivate = { onRequestReactivate(item.account.id) },
+                    onDelete = { onRequestDelete(item.account.id) }
+                )
+            }
+        }
     }
 }
 
@@ -742,6 +1006,7 @@ private fun AccountManagementScreenPreview() {
                         )
                     )
                 ),
+                screenLayoutPreference = ScreenLayoutPreference.AUTO,
                 onBack = {},
                 onAddAccount = {},
                 onEditAccount = {},
