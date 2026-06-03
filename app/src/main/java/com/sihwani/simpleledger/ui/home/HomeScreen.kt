@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -43,10 +45,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sihwani.simpleledger.domain.layout.ScreenLayoutPreference
 import com.sihwani.simpleledger.domain.model.MonthlySummary
 import com.sihwani.simpleledger.domain.model.Transaction
 import com.sihwani.simpleledger.domain.model.TransactionStatus
 import com.sihwani.simpleledger.domain.model.TransactionType
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutDefaults
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutMode
+import com.sihwani.simpleledger.ui.adaptive.resolveAdaptiveLayoutMode
 import com.sihwani.simpleledger.ui.ads.TopBannerAd
 import com.sihwani.simpleledger.util.DateUtils
 import com.sihwani.simpleledger.util.MoneyFormatter
@@ -54,6 +60,7 @@ import com.sihwani.simpleledger.util.MoneyFormatter
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
+    screenLayoutPreference: ScreenLayoutPreference,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onAddExpense: () -> Unit,
@@ -72,22 +79,85 @@ fun HomeScreen(
         containerColor = Color(0xFFF6F7F9),
         bottomBar = {
             Surface(color = Color(0xFFF6F7F9)) {
-                HomeActionBar(
-                    onAddExpense = onAddExpense,
-                    onHome = onHome,
-                    onAddIncome = onAddIncome,
+                Box(
                     modifier = Modifier
+                        .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    HomeActionBar(
+                        onAddExpense = onAddExpense,
+                        onHome = onHome,
+                        onAddIncome = onAddIncome,
+                        modifier = Modifier
+                            .widthIn(max = AdaptiveLayoutDefaults.BottomBarMaxWidth)
+                            .fillMaxWidth()
+                    )
+                }
             }
         }
     ) { innerPadding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFFF6F7F9))
                 .padding(innerPadding)
+        ) {
+            val adaptiveLayoutMode = resolveAdaptiveLayoutMode(
+                preference = screenLayoutPreference,
+                availableWidth = maxWidth
+            )
+
+            if (adaptiveLayoutMode == AdaptiveLayoutMode.WIDE) {
+                WideHomeContent(
+                    uiState = uiState,
+                    onPreviousMonth = onPreviousMonth,
+                    onNextMonth = onNextMonth,
+                    onShowHistory = onShowHistory,
+                    onOpenSettings = onOpenSettings,
+                    onOpenAccounts = onOpenAccounts,
+                    onMonthSelected = onMonthSelected,
+                    onTransactionClick = onTransactionClick,
+                    isPremium = isPremium
+                )
+            } else {
+                CompactHomeContent(
+                    uiState = uiState,
+                    onPreviousMonth = onPreviousMonth,
+                    onNextMonth = onNextMonth,
+                    onShowHistory = onShowHistory,
+                    onOpenSettings = onOpenSettings,
+                    onOpenAccounts = onOpenAccounts,
+                    onMonthSelected = onMonthSelected,
+                    onTransactionClick = onTransactionClick,
+                    isPremium = isPremium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactHomeContent(
+    uiState: HomeUiState,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onShowHistory: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenAccounts: () -> Unit,
+    onMonthSelected: (String) -> Unit,
+    onTransactionClick: (String) -> Unit,
+    isPremium: Boolean
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = AdaptiveLayoutDefaults.CompactContentMaxWidth)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
                 .padding(top = 20.dp, bottom = 16.dp),
@@ -113,6 +183,79 @@ fun HomeScreen(
                 incomeTransactions = uiState.incomeTransactions,
                 onTransactionClick = onTransactionClick
             )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun WideHomeContent(
+    uiState: HomeUiState,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onShowHistory: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenAccounts: () -> Unit,
+    onMonthSelected: (String) -> Unit,
+    onTransactionClick: (String) -> Unit,
+    isPremium: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp)
+            .padding(top = 20.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = AdaptiveLayoutDefaults.WideContentMaxWidth)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            HomeHeader(onOpenSettings = onOpenSettings)
+            TopBannerAd(
+                isPremium = isPremium,
+                modifier = Modifier
+                    .widthIn(max = AdaptiveLayoutDefaults.CompactContentMaxWidth)
+                    .fillMaxWidth()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(
+                    modifier = Modifier.weight(0.9f),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    MonthSelector(
+                        selectedMonthKey = uiState.selectedMonthKey,
+                        monthLabel = uiState.monthLabel,
+                        onPreviousMonth = onPreviousMonth,
+                        onNextMonth = onNextMonth,
+                        onMonthSelected = onMonthSelected
+                    )
+                    SummaryCard(summary = uiState.summary)
+                    AccountSummaryCard(
+                        accountSummary = uiState.accountSummary,
+                        onOpenAccounts = onOpenAccounts
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1.1f),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    HistoryButton(onShowHistory = onShowHistory)
+                    TransactionColumns(
+                        expenseTransactions = uiState.expenseTransactions,
+                        incomeTransactions = uiState.incomeTransactions,
+                        onTransactionClick = onTransactionClick
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -827,6 +970,7 @@ private fun HomeScreenPreview() {
                         balance = 2_674_000L
                     )
                 ),
+                screenLayoutPreference = ScreenLayoutPreference.AUTO,
                 onPreviousMonth = {},
                 onNextMonth = {},
                 onAddExpense = {},

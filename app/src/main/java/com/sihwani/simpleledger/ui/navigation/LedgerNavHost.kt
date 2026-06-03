@@ -14,6 +14,7 @@ import androidx.navigation.navArgument
 import com.sihwani.simpleledger.BuildConfig
 import com.sihwani.simpleledger.data.backup.BackupFileManager
 import com.sihwani.simpleledger.data.date.AppDateProvider
+import com.sihwani.simpleledger.data.layout.ScreenLayoutPreferenceRepository
 import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.AccountRepository
@@ -54,6 +55,7 @@ fun LedgerNavHost(
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
     premiumRepository: PremiumRepository,
+    screenLayoutPreferenceRepository: ScreenLayoutPreferenceRepository,
     pdfExportManager: PdfExportManager,
     appDateProvider: AppDateProvider,
     recurringTransactionScheduler: RecurringTransactionScheduler,
@@ -77,9 +79,13 @@ fun LedgerNavHost(
             )
             val uiState by homeViewModel.uiState.collectAsState()
             val isPremium by premiumRepository.isPremium.collectAsState()
+            val screenLayoutPreference by screenLayoutPreferenceRepository
+                .screenLayoutPreference
+                .collectAsState()
 
             HomeScreen(
                 uiState = uiState,
+                screenLayoutPreference = screenLayoutPreference,
                 onPreviousMonth = homeViewModel::movePreviousMonth,
                 onNextMonth = homeViewModel::moveNextMonth,
                 onAddExpense = { navController.navigate(LedgerRoutes.ExpenseForm) },
@@ -216,6 +222,7 @@ fun LedgerNavHost(
                 factory = SettingsViewModelFactory(
                     transactionRepository = transactionRepository,
                     premiumRepository = premiumRepository,
+                    screenLayoutPreferenceRepository = screenLayoutPreferenceRepository,
                     appDateProvider = appDateProvider,
                     recurringTransactionScheduler = recurringTransactionScheduler
                 )
@@ -250,6 +257,7 @@ fun LedgerNavHost(
                 onDebugDateSelected = settingsViewModel::setTestDateForDebug,
                 onClearDebugDate = settingsViewModel::clearTestDateForDebug,
                 onRunScheduledSync = settingsViewModel::runScheduledSyncForDebug,
+                onScreenLayoutPreferenceChange = settingsViewModel::setScreenLayoutPreference,
                 onExportBackup = dataManagementViewModel::exportBackup,
                 onImportBackup = dataManagementViewModel::importBackup,
                 onMergeImport = dataManagementViewModel::mergePendingImport,

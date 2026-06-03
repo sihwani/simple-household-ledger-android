@@ -2,6 +2,7 @@
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -37,8 +38,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.sihwani.simpleledger.domain.layout.ScreenLayoutPreference
 import com.sihwani.simpleledger.domain.premium.PremiumPolicy
+import com.sihwani.simpleledger.ui.adaptive.AdaptiveLayoutDefaults
 import com.sihwani.simpleledger.ui.history.DataManagementSection
 import com.sihwani.simpleledger.ui.history.DataManagementUiState
 import com.sihwani.simpleledger.util.DateUtils
@@ -59,6 +63,7 @@ fun SettingsScreen(
     onDebugDateSelected: (String) -> Unit,
     onClearDebugDate: () -> Unit,
     onRunScheduledSync: () -> Unit,
+    onScreenLayoutPreferenceChange: (ScreenLayoutPreference) -> Unit,
     onExportBackup: (String) -> Unit,
     onImportBackup: (String) -> Unit,
     onMergeImport: () -> Unit,
@@ -71,53 +76,64 @@ fun SettingsScreen(
     onDismissDeleteAllConfirmDialog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFFF6F7F9))
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        SettingsHeader(onBack = onBack)
-        DataManagementSection(
-            uiState = dataManagementUiState,
-            onExportBackup = onExportBackup,
-            onImportBackup = onImportBackup,
-            onMergeImport = onMergeImport,
-            onRequestReplaceImport = onRequestReplaceImport,
-            onConfirmReplaceImport = onConfirmReplaceImport,
-            onDismissImportModeDialog = onDismissImportModeDialog,
-            onDismissReplaceConfirmDialog = onDismissReplaceConfirmDialog,
-            onRequestDeleteAll = onRequestDeleteAll,
-            onConfirmDeleteAll = onConfirmDeleteAll,
-            onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
-        )
-        AccountManagementEntry(onOpenAccounts = onOpenAccounts)
-        RecurringManagementEntry(onOpenRecurringTransactions = onOpenRecurringTransactions)
-        ReceiptSection(receiptImageCount = uiState.receiptImageCount)
-        AppSettingsSection()
-        PremiumSection(
-            isPremium = uiState.isPremium,
-            showDebugPremiumToggle = showDebugPremiumToggle,
-            onDebugPremiumChange = onDebugPremiumChange
-        )
-        AppInfoSection(
-            versionName = versionName,
-            versionCode = versionCode,
-            packageName = packageName
-        )
-        if (showDebugDateTools) {
-            DebugDateToolsSection(
-                currentDateIso = uiState.currentDateIso,
-                isUsingTestDate = uiState.isUsingTestDate,
-                message = uiState.debugDateMessage,
-                onDateSelected = onDebugDateSelected,
-                onClearDate = onClearDebugDate,
-                onRunScheduledSync = onRunScheduledSync
+        val availableWidth = maxWidth
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            SettingsHeader(onBack = onBack)
+            DataManagementSection(
+                uiState = dataManagementUiState,
+                onExportBackup = onExportBackup,
+                onImportBackup = onImportBackup,
+                onMergeImport = onMergeImport,
+                onRequestReplaceImport = onRequestReplaceImport,
+                onConfirmReplaceImport = onConfirmReplaceImport,
+                onDismissImportModeDialog = onDismissImportModeDialog,
+                onDismissReplaceConfirmDialog = onDismissReplaceConfirmDialog,
+                onRequestDeleteAll = onRequestDeleteAll,
+                onConfirmDeleteAll = onConfirmDeleteAll,
+                onDismissDeleteAllConfirmDialog = onDismissDeleteAllConfirmDialog
             )
+            AccountManagementEntry(onOpenAccounts = onOpenAccounts)
+            RecurringManagementEntry(onOpenRecurringTransactions = onOpenRecurringTransactions)
+            ReceiptSection(receiptImageCount = uiState.receiptImageCount)
+            AppSettingsSection(
+                availableWidth = availableWidth,
+                screenLayoutPreference = uiState.screenLayoutPreference,
+                onScreenLayoutPreferenceChange = onScreenLayoutPreferenceChange
+            )
+            PremiumSection(
+                isPremium = uiState.isPremium,
+                showDebugPremiumToggle = showDebugPremiumToggle,
+                onDebugPremiumChange = onDebugPremiumChange
+            )
+            AppInfoSection(
+                versionName = versionName,
+                versionCode = versionCode,
+                packageName = packageName
+            )
+            if (showDebugDateTools) {
+                DebugDateToolsSection(
+                    currentDateIso = uiState.currentDateIso,
+                    isUsingTestDate = uiState.isUsingTestDate,
+                    message = uiState.debugDateMessage,
+                    onDateSelected = onDebugDateSelected,
+                    onClearDate = onClearDebugDate,
+                    onRunScheduledSync = onRunScheduledSync
+                )
+            }
+            Spacer(modifier = Modifier.height(32.dp))
         }
-        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
@@ -364,7 +380,13 @@ private fun ReceiptSection(
 }
 
 @Composable
-private fun AppSettingsSection() {
+private fun AppSettingsSection(
+    availableWidth: Dp,
+    screenLayoutPreference: ScreenLayoutPreference,
+    onScreenLayoutPreferenceChange: (ScreenLayoutPreference) -> Unit
+) {
+    val canUseWideLayout = availableWidth >= AdaptiveLayoutDefaults.WideLayoutMinWidth
+
     SettingsCard(title = "앱 설정") {
         InfoRow(label = "테마", value = "라이트 모드 고정")
         Text(
@@ -373,6 +395,69 @@ private fun AppSettingsSection() {
             fontWeight = FontWeight.SemiBold,
             color = Color(0xFF71717A)
         )
+        SectionLabel(text = "화면 레이아웃")
+        ScreenLayoutPreference.Options.forEach { preference ->
+            val isWideOption = preference == ScreenLayoutPreference.WIDE
+            val enabled = !isWideOption || canUseWideLayout
+            ScreenLayoutPreferenceButton(
+                preference = preference,
+                selected = screenLayoutPreference == preference,
+                enabled = enabled,
+                onClick = { onScreenLayoutPreferenceChange(preference) }
+            )
+            if (isWideOption && !canUseWideLayout) {
+                Text(
+                    text = "현재 화면 크기에서는 기본형으로 표시됩니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF71717A)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScreenLayoutPreferenceButton(
+    preference: ScreenLayoutPreference,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val text = "${preference.label} · ${preference.description}"
+    val modifier = Modifier
+        .fillMaxWidth()
+        .height(44.dp)
+
+    if (selected) {
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier,
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
+        ) {
+            Text(
+                text = text,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier,
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                text = text,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -603,6 +688,7 @@ private fun SettingsScreenPreview() {
                 onDebugDateSelected = {},
                 onClearDebugDate = {},
                 onRunScheduledSync = {},
+                onScreenLayoutPreferenceChange = {},
                 onExportBackup = {},
                 onImportBackup = {},
                 onMergeImport = {},

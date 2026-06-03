@@ -12,6 +12,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.sihwani.simpleledger.data.ads.MobileAdsInitializer
 import com.sihwani.simpleledger.data.backup.BackupFileManager
 import com.sihwani.simpleledger.data.date.AppDateProvider
+import com.sihwani.simpleledger.data.layout.ScreenLayoutPreferenceRepository
 import com.sihwani.simpleledger.data.local.LedgerDatabase
 import com.sihwani.simpleledger.data.pdf.PdfExportManager
 import com.sihwani.simpleledger.data.premium.PremiumRepository
@@ -57,6 +58,9 @@ class MainActivity : ComponentActivity() {
     private val premiumRepository: PremiumRepository by lazy {
         PremiumRepository(applicationContext)
     }
+    private val screenLayoutPreferenceRepository: ScreenLayoutPreferenceRepository by lazy {
+        ScreenLayoutPreferenceRepository(applicationContext)
+    }
     private val pdfExportManager: PdfExportManager by lazy {
         PdfExportManager(applicationContext)
     }
@@ -81,6 +85,7 @@ class MainActivity : ComponentActivity() {
                 receiptImageStorage = receiptImageStorage,
                 backupFileManager = backupFileManager,
                 premiumRepository = premiumRepository,
+                screenLayoutPreferenceRepository = screenLayoutPreferenceRepository,
                 pdfExportManager = pdfExportManager,
                 appDateProvider = appDateProvider,
                 recurringTransactionScheduler = recurringTransactionScheduler
@@ -97,6 +102,7 @@ private fun HannunLedgerApp(
     receiptImageStorage: ReceiptImageStorage,
     backupFileManager: BackupFileManager,
     premiumRepository: PremiumRepository,
+    screenLayoutPreferenceRepository: ScreenLayoutPreferenceRepository,
     pdfExportManager: PdfExportManager,
     appDateProvider: AppDateProvider,
     recurringTransactionScheduler: RecurringTransactionScheduler
@@ -113,6 +119,7 @@ private fun HannunLedgerApp(
                 receiptImageStorage = receiptImageStorage,
                 backupFileManager = backupFileManager,
                 premiumRepository = premiumRepository,
+                screenLayoutPreferenceRepository = screenLayoutPreferenceRepository,
                 pdfExportManager = pdfExportManager,
                 appDateProvider = appDateProvider,
                 recurringTransactionScheduler = recurringTransactionScheduler

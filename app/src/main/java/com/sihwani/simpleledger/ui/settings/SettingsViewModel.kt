@@ -5,8 +5,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.sihwani.simpleledger.BuildConfig
 import com.sihwani.simpleledger.data.date.AppDateProvider
+import com.sihwani.simpleledger.data.layout.ScreenLayoutPreferenceRepository
 import com.sihwani.simpleledger.data.premium.PremiumRepository
 import com.sihwani.simpleledger.data.repository.TransactionRepository
+import com.sihwani.simpleledger.domain.layout.ScreenLayoutPreference
 import com.sihwani.simpleledger.domain.recurring.RecurringTransactionScheduler
 import com.sihwani.simpleledger.util.DateUtils
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +21,7 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val receiptImageCount: Int = 0,
     val isPremium: Boolean = false,
+    val screenLayoutPreference: ScreenLayoutPreference = ScreenLayoutPreference.AUTO,
     val currentDateIso: String = DateUtils.todayIso(),
     val testDateIso: String? = null,
     val isUsingTestDate: Boolean = false,
@@ -28,6 +31,7 @@ data class SettingsUiState(
 class SettingsViewModel(
     transactionRepository: TransactionRepository,
     private val premiumRepository: PremiumRepository,
+    private val screenLayoutPreferenceRepository: ScreenLayoutPreferenceRepository,
     private val appDateProvider: AppDateProvider,
     private val recurringTransactionScheduler: RecurringTransactionScheduler
 ) : ViewModel() {
@@ -36,14 +40,16 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = combine(
         transactionRepository.observeAllTransactions(),
         premiumRepository.isPremium,
+        screenLayoutPreferenceRepository.screenLayoutPreference,
         appDateProvider.state,
         debugDateMessage
-    ) { transactions, isPremium, dateState, message ->
+    ) { transactions, isPremium, screenLayoutPreference, dateState, message ->
             SettingsUiState(
                 receiptImageCount = transactions.count { transaction ->
                     !transaction.receiptImagePath.isNullOrBlank()
                 },
                 isPremium = isPremium,
+                screenLayoutPreference = screenLayoutPreference,
                 currentDateIso = dateState.currentDateIso,
                 testDateIso = dateState.testDateIso,
                 isUsingTestDate = dateState.isUsingTestDate,
@@ -58,6 +64,10 @@ class SettingsViewModel(
 
     fun setPremiumForDebug(isPremium: Boolean) {
         premiumRepository.setPremiumForDebug(isPremium)
+    }
+
+    fun setScreenLayoutPreference(preference: ScreenLayoutPreference) {
+        screenLayoutPreferenceRepository.setScreenLayoutPreference(preference)
     }
 
     fun setTestDateForDebug(dateIso: String) {
@@ -103,6 +113,7 @@ class SettingsViewModel(
 class SettingsViewModelFactory(
     private val transactionRepository: TransactionRepository,
     private val premiumRepository: PremiumRepository,
+    private val screenLayoutPreferenceRepository: ScreenLayoutPreferenceRepository,
     private val appDateProvider: AppDateProvider,
     private val recurringTransactionScheduler: RecurringTransactionScheduler
 ) : ViewModelProvider.Factory {
@@ -112,6 +123,7 @@ class SettingsViewModelFactory(
             return SettingsViewModel(
                 transactionRepository = transactionRepository,
                 premiumRepository = premiumRepository,
+                screenLayoutPreferenceRepository = screenLayoutPreferenceRepository,
                 appDateProvider = appDateProvider,
                 recurringTransactionScheduler = recurringTransactionScheduler
             ) as T
