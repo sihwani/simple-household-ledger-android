@@ -130,6 +130,10 @@ class AccountManagementViewModel(
     )
 
     fun requestAddAccount() {
+        if (formState.value.form?.isSaving == true) {
+            return
+        }
+
         val state = uiState.value
         if (isFreeLimitReached(state)) {
             showPremiumDialog()
@@ -145,6 +149,10 @@ class AccountManagementViewModel(
     }
 
     fun requestEditAccount(accountId: String) {
+        if (formState.value.form?.isSaving == true) {
+            return
+        }
+
         val account = findAccount(accountId) ?: return
 
         formState.update {
@@ -223,9 +231,9 @@ class AccountManagementViewModel(
             return
         }
 
-        viewModelScope.launch {
-            updateForm { it.copy(isSaving = true, errorMessage = null) }
+        updateForm { it.copy(isSaving = true, errorMessage = null) }
 
+        viewModelScope.launch {
             runCatching {
                 val now = System.currentTimeMillis()
                 val existingAccount = findAccount(form.editingAccountId)
@@ -287,20 +295,20 @@ class AccountManagementViewModel(
 
     fun confirmDeactivate() {
         val accountId = formState.value.accountIdPendingDeactivate ?: return
+        formState.update { it.copy(accountIdPendingDeactivate = null) }
+
         viewModelScope.launch {
             runCatching {
                 accountRepository.setActive(accountId, false)
             }.onSuccess {
                 formState.update {
                     it.copy(
-                        accountIdPendingDeactivate = null,
                         message = "계좌/지갑을 비활성화했습니다."
                     )
                 }
             }.onFailure { throwable ->
                 formState.update {
                     it.copy(
-                        accountIdPendingDeactivate = null,
                         message = throwable.message ?: "계좌/지갑을 비활성화하지 못했습니다."
                     )
                 }
@@ -329,20 +337,20 @@ class AccountManagementViewModel(
 
     fun confirmReactivate() {
         val accountId = formState.value.accountIdPendingReactivate ?: return
+        formState.update { it.copy(accountIdPendingReactivate = null) }
+
         viewModelScope.launch {
             runCatching {
                 accountRepository.setActive(accountId, true)
             }.onSuccess {
                 formState.update {
                     it.copy(
-                        accountIdPendingReactivate = null,
                         message = "계좌/지갑을 다시 사용하도록 변경했습니다."
                     )
                 }
             }.onFailure { throwable ->
                 formState.update {
                     it.copy(
-                        accountIdPendingReactivate = null,
                         message = throwable.message ?: "계좌/지갑을 다시 사용하도록 변경하지 못했습니다."
                     )
                 }
@@ -381,6 +389,7 @@ class AccountManagementViewModel(
     fun confirmDelete() {
         val deleteDialog = formState.value.deleteDialog ?: return
         val account = findAccount(deleteDialog.accountId) ?: return
+        formState.update { it.copy(deleteDialog = null) }
 
         viewModelScope.launch {
             runCatching {
@@ -392,7 +401,6 @@ class AccountManagementViewModel(
             }.onSuccess {
                 formState.update {
                     it.copy(
-                        deleteDialog = null,
                         message = if (deleteDialog.linkedTransactionCount > 0) {
                             "계좌/지갑을 삭제했습니다. 기존 거래에는 삭제 당시 정보가 표시됩니다."
                         } else {
@@ -403,7 +411,6 @@ class AccountManagementViewModel(
             }.onFailure { throwable ->
                 formState.update {
                     it.copy(
-                        deleteDialog = null,
                         message = throwable.message ?: "계좌/지갑을 삭제하지 못했습니다."
                     )
                 }

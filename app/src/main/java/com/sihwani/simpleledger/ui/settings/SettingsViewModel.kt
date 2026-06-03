@@ -25,7 +25,8 @@ data class SettingsUiState(
     val currentDateIso: String = DateUtils.todayIso(),
     val testDateIso: String? = null,
     val isUsingTestDate: Boolean = false,
-    val debugDateMessage: String? = null
+    val debugDateMessage: String? = null,
+    val isRunningScheduledSyncForDebug: Boolean = false
 )
 
 class SettingsViewModel(
@@ -36,14 +37,21 @@ class SettingsViewModel(
     private val recurringTransactionScheduler: RecurringTransactionScheduler
 ) : ViewModel() {
     private val debugDateMessage = MutableStateFlow<String?>(null)
+    private val isRunningScheduledSyncForDebug = MutableStateFlow(false)
+    private val debugSyncState = combine(
+        debugDateMessage,
+        isRunningScheduledSyncForDebug
+    ) { message, isRunningSync ->
+        message to isRunningSync
+    }
 
     val uiState: StateFlow<SettingsUiState> = combine(
         transactionRepository.observeAllTransactions(),
         premiumRepository.isPremium,
         screenLayoutPreferenceRepository.screenLayoutPreference,
         appDateProvider.state,
-        debugDateMessage
-    ) { transactions, isPremium, screenLayoutPreference, dateState, message ->
+        debugSyncState
+    ) { transactions, isPremium, screenLayoutPreference, dateState, debugState ->
             SettingsUiState(
                 receiptImageCount = transactions.count { transaction ->
                     !transaction.receiptImagePath.isNullOrBlank()
@@ -53,7 +61,8 @@ class SettingsViewModel(
                 currentDateIso = dateState.currentDateIso,
                 testDateIso = dateState.testDateIso,
                 isUsingTestDate = dateState.isUsingTestDate,
-                debugDateMessage = message
+                debugDateMessage = debugState.first,
+                isRunningScheduledSyncForDebug = debugState.second
             )
         }
         .stateIn(
@@ -96,15 +105,22 @@ class SettingsViewModel(
         if (!BuildConfig.DEBUG) {
             return
         }
+        if (isRunningScheduledSyncForDebug.value) {
+            return
+        }
+
+        isRunningScheduledSyncForDebug.value = true
+        debugDateMessage.value = "예정/반복 거래 동기화 실행 중입니다."
 
         viewModelScope.launch {
-            debugDateMessage.value = "예정/반복 거래 동기화 실행 중입니다."
             runCatching {
                 recurringTransactionScheduler.sync()
             }.onSuccess {
                 debugDateMessage.value = "예정/반복 거래 동기화를 실행했습니다."
             }.onFailure { throwable ->
                 debugDateMessage.value = throwable.message ?: "예정/반복 거래 동기화에 실패했습니다."
+            }.also {
+                isRunningScheduledSyncForDebug.value = false
             }
         }
     }

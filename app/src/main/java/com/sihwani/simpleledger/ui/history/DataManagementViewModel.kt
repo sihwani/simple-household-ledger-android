@@ -46,14 +46,18 @@ class DataManagementViewModel(
     private var pendingImportSkippedOccurrences: List<RecurringSkippedOccurrence> = emptyList()
 
     fun exportBackup(uriString: String) {
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isBusy = true,
-                    message = null
-                )
-            }
+        if (uiState.value.isBusy) {
+            return
+        }
 
+        _uiState.update {
+            it.copy(
+                isBusy = true,
+                message = null
+            )
+        }
+
+        viewModelScope.launch {
             runCatching {
                 val transactions = transactionRepository.getAllTransactions()
                 val accounts = accountRepository.getAllAccounts()
@@ -88,16 +92,20 @@ class DataManagementViewModel(
     }
 
     fun importBackup(uriString: String) {
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isBusy = true,
-                    message = null,
-                    showImportModeDialog = false,
-                    showReplaceConfirmDialog = false
-                )
-            }
+        if (uiState.value.isBusy) {
+            return
+        }
 
+        _uiState.update {
+            it.copy(
+                isBusy = true,
+                message = null,
+                showImportModeDialog = false,
+                showReplaceConfirmDialog = false
+            )
+        }
+
+        viewModelScope.launch {
             runCatching {
                 backupFileManager.readBackup(uriString)
             }.onSuccess { backupData ->
@@ -138,21 +146,25 @@ class DataManagementViewModel(
         val importAccounts = pendingImportAccounts
         val importRecurringTransactions = pendingImportRecurringTransactions
         val importSkippedOccurrences = pendingImportSkippedOccurrences
+        if (uiState.value.isBusy) {
+            return
+        }
+
         if (importTransactions.isEmpty() && importAccounts.isEmpty() && importRecurringTransactions.isEmpty()) {
             dismissImportModeDialog()
             showMessage("가져올 데이터가 없습니다.")
             return
         }
 
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isBusy = true,
-                    showImportModeDialog = false,
-                    message = null
-                )
-            }
+        _uiState.update {
+            it.copy(
+                isBusy = true,
+                showImportModeDialog = false,
+                message = null
+            )
+        }
 
+        viewModelScope.launch {
             runCatching {
                 dataManagementRepository.mergeImport(
                     transactions = importTransactions,
@@ -180,6 +192,10 @@ class DataManagementViewModel(
     }
 
     fun requestReplaceImport() {
+        if (uiState.value.isBusy) {
+            return
+        }
+
         _uiState.update {
             it.copy(
                 showImportModeDialog = false,
@@ -193,16 +209,19 @@ class DataManagementViewModel(
         val importAccounts = pendingImportAccounts
         val importRecurringTransactions = pendingImportRecurringTransactions
         val importSkippedOccurrences = pendingImportSkippedOccurrences
+        if (uiState.value.isBusy) {
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                isBusy = true,
+                showReplaceConfirmDialog = false,
+                message = null
+            )
+        }
 
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isBusy = true,
-                    showReplaceConfirmDialog = false,
-                    message = null
-                )
-            }
-
             runCatching {
                 val result = dataManagementRepository.replaceImport(
                     transactions = importTransactions,
@@ -232,6 +251,10 @@ class DataManagementViewModel(
     }
 
     fun requestDeleteAll() {
+        if (uiState.value.isBusy) {
+            return
+        }
+
         _uiState.update {
             it.copy(
                 showDeleteAllConfirmDialog = true,
@@ -241,15 +264,19 @@ class DataManagementViewModel(
     }
 
     fun confirmDeleteAll() {
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isBusy = true,
-                    showDeleteAllConfirmDialog = false,
-                    message = null
-                )
-            }
+        if (uiState.value.isBusy) {
+            return
+        }
 
+        _uiState.update {
+            it.copy(
+                isBusy = true,
+                showDeleteAllConfirmDialog = false,
+                message = null
+            )
+        }
+
+        viewModelScope.launch {
             runCatching {
                 val result = dataManagementRepository.deleteAllData()
                 deleteReceiptImages(result.deletedTransactions)
@@ -273,18 +300,30 @@ class DataManagementViewModel(
     }
 
     fun dismissImportModeDialog() {
+        if (uiState.value.isBusy) {
+            return
+        }
+
         _uiState.update {
             it.copy(showImportModeDialog = false)
         }
     }
 
     fun dismissReplaceConfirmDialog() {
+        if (uiState.value.isBusy) {
+            return
+        }
+
         _uiState.update {
             it.copy(showReplaceConfirmDialog = false)
         }
     }
 
     fun dismissDeleteAllConfirmDialog() {
+        if (uiState.value.isBusy) {
+            return
+        }
+
         _uiState.update {
             it.copy(showDeleteAllConfirmDialog = false)
         }

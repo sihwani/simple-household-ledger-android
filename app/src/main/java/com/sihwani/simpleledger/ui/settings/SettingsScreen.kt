@@ -226,6 +226,7 @@ private fun CompactSettingsContent(
             DebugDateToolsSection(
                 currentDateIso = uiState.currentDateIso,
                 isUsingTestDate = uiState.isUsingTestDate,
+                isRunningScheduledSync = uiState.isRunningScheduledSyncForDebug,
                 message = uiState.debugDateMessage,
                 onDateSelected = onDebugDateSelected,
                 onClearDate = onClearDebugDate,
@@ -333,6 +334,7 @@ private fun WideSettingsContent(
                     DebugDateToolsSection(
                         currentDateIso = uiState.currentDateIso,
                         isUsingTestDate = uiState.isUsingTestDate,
+                        isRunningScheduledSync = uiState.isRunningScheduledSyncForDebug,
                         message = uiState.debugDateMessage,
                         onDateSelected = onDebugDateSelected,
                         onClearDate = onClearDebugDate,
@@ -717,6 +719,7 @@ private fun AppInfoSection(
 private fun DebugDateToolsSection(
     currentDateIso: String,
     isUsingTestDate: Boolean,
+    isRunningScheduledSync: Boolean,
     message: String?,
     onDateSelected: (String) -> Unit,
     onClearDate: () -> Unit,
@@ -777,6 +780,7 @@ private fun DebugDateToolsSection(
         }
         Button(
             onClick = onRunScheduledSync,
+            enabled = !isRunningScheduledSync,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
@@ -784,7 +788,11 @@ private fun DebugDateToolsSection(
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18181B))
         ) {
             Text(
-                text = "예정/반복 거래 동기화 실행",
+                text = if (isRunningScheduledSync) {
+                    "동기화 실행 중"
+                } else {
+                    "예정/반복 거래 동기화 실행"
+                },
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

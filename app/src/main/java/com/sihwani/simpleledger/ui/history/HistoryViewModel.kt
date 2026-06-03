@@ -113,6 +113,10 @@ class HistoryViewModel(
 
     fun requestMonthlyPdf(monthKey: String) {
         val state = uiState.value
+        if (state.isExportingPdf) {
+            return
+        }
+
         val section = state.sections.firstOrNull { it.monthKey == monthKey } ?: run {
             showPdfMessage("PDF로 만들 월 내역을 찾을 수 없습니다.")
             return
@@ -138,6 +142,10 @@ class HistoryViewModel(
 
     fun requestYearlyPdf(year: Int) {
         val state = uiState.value
+        if (state.isExportingPdf) {
+            return
+        }
+
         val section = state.yearSections.firstOrNull { it.year == year } ?: run {
             showPdfMessage("PDF로 만들 연도 내역을 찾을 수 없습니다.")
             return
@@ -162,6 +170,10 @@ class HistoryViewModel(
     }
 
     fun dismissPdfConfirmation() {
+        if (uiState.value.isExportingPdf) {
+            return
+        }
+
         pdfState.update { it.copy(pendingPdfRequest = null) }
     }
 

@@ -122,6 +122,10 @@ class RecurringTransactionViewModel(
     )
 
     fun requestAddRule() {
+        if (screenState.value.form?.isSaving == true) {
+            return
+        }
+
         val state = uiState.value
         if (!state.isPremium && state.activeRules.size >= PremiumPolicy.FreeRecurringRuleLimit) {
             showPremiumDialog()
@@ -139,6 +143,10 @@ class RecurringTransactionViewModel(
     }
 
     fun requestEditRule(ruleId: String) {
+        if (screenState.value.form?.isSaving == true) {
+            return
+        }
+
         val rule = findRule(ruleId) ?: return
         screenState.update {
             it.copy(
@@ -310,20 +318,20 @@ class RecurringTransactionViewModel(
 
     fun confirmDeactivate() {
         val ruleId = screenState.value.ruleIdPendingDeactivate ?: return
+        screenState.update { it.copy(ruleIdPendingDeactivate = null) }
+
         viewModelScope.launch {
             runCatching {
                 recurringTransactionRepository.setActive(ruleId, false)
             }.onSuccess {
                 screenState.update {
                     it.copy(
-                        ruleIdPendingDeactivate = null,
                         message = "반복 거래를 비활성화했습니다."
                     )
                 }
             }.onFailure { throwable ->
                 screenState.update {
                     it.copy(
-                        ruleIdPendingDeactivate = null,
                         message = throwable.message ?: "반복 거래를 비활성화하지 못했습니다."
                     )
                 }
@@ -352,6 +360,8 @@ class RecurringTransactionViewModel(
 
     fun confirmReactivate() {
         val ruleId = screenState.value.ruleIdPendingReactivate ?: return
+        screenState.update { it.copy(ruleIdPendingReactivate = null) }
+
         viewModelScope.launch {
             runCatching {
                 recurringTransactionRepository.setActive(ruleId, true)
@@ -359,14 +369,12 @@ class RecurringTransactionViewModel(
             }.onSuccess {
                 screenState.update {
                     it.copy(
-                        ruleIdPendingReactivate = null,
                         message = "반복 거래를 다시 사용하도록 변경했습니다."
                     )
                 }
             }.onFailure { throwable ->
                 screenState.update {
                     it.copy(
-                        ruleIdPendingReactivate = null,
                         message = throwable.message ?: "반복 거래를 다시 사용하도록 변경하지 못했습니다."
                     )
                 }
@@ -389,20 +397,20 @@ class RecurringTransactionViewModel(
 
     fun confirmDelete() {
         val ruleId = screenState.value.ruleIdPendingDelete ?: return
+        screenState.update { it.copy(ruleIdPendingDelete = null) }
+
         viewModelScope.launch {
             runCatching {
                 recurringTransactionRepository.delete(ruleId)
             }.onSuccess {
                 screenState.update {
                     it.copy(
-                        ruleIdPendingDelete = null,
                         message = "반복 거래 원본을 삭제했습니다. 이미 생성된 거래는 유지됩니다."
                     )
                 }
             }.onFailure { throwable ->
                 screenState.update {
                     it.copy(
-                        ruleIdPendingDelete = null,
                         message = throwable.message ?: "반복 거래를 삭제하지 못했습니다."
                     )
                 }

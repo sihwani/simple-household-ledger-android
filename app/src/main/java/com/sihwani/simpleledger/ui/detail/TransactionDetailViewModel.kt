@@ -80,6 +80,10 @@ class TransactionDetailViewModel(
     }
 
     fun requestDelete() {
+        if (_uiState.value.isDeleting) {
+            return
+        }
+
         _uiState.update {
             it.copy(
                 showDeleteDialog = true,
@@ -97,18 +101,22 @@ class TransactionDetailViewModel(
     }
 
     fun deleteTransaction() {
-        val transaction = _uiState.value.transaction ?: return
+        val state = _uiState.value
+        if (state.isDeleting) {
+            return
+        }
+
+        val transaction = state.transaction ?: return
         val id = transaction.id
         val receiptImagePath = transaction.receiptImagePath
+        _uiState.update {
+            it.copy(
+                isDeleting = true,
+                errorMessage = null
+            )
+        }
 
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isDeleting = true,
-                    errorMessage = null
-                )
-            }
-
             runCatching {
                 val recurringRuleId = transaction.recurringRuleId
                 val recurringOccurrenceKey = transaction.recurringOccurrenceKey
