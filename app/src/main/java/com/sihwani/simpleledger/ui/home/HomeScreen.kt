@@ -203,7 +203,6 @@ private fun WideHomeContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp)
             .padding(top = 20.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -212,7 +211,8 @@ private fun WideHomeContent(
         Column(
             modifier = Modifier
                 .widthIn(max = AdaptiveLayoutDefaults.WideContentMaxWidth)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .weight(1f),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             HomeHeader(onOpenSettings = onOpenSettings)
@@ -223,12 +223,18 @@ private fun WideHomeContent(
                     .fillMaxWidth()
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalAlignment = Alignment.Top
             ) {
                 Column(
-                    modifier = Modifier.weight(0.9f),
+                    modifier = Modifier
+                        .weight(0.9f)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     MonthSelector(
@@ -243,9 +249,14 @@ private fun WideHomeContent(
                         accountSummary = uiState.accountSummary,
                         onOpenAccounts = onOpenAccounts
                     )
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
                 Column(
-                    modifier = Modifier.weight(1.1f),
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     HistoryButton(onShowHistory = onShowHistory)
@@ -254,9 +265,9 @@ private fun WideHomeContent(
                         incomeTransactions = uiState.incomeTransactions,
                         onTransactionClick = onTransactionClick
                     )
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

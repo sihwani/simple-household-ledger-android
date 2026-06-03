@@ -120,9 +120,13 @@ fun LedgerNavHost(
                 )
             )
             val uiState by formViewModel.uiState.collectAsState()
+            val screenLayoutPreference by screenLayoutPreferenceRepository
+                .screenLayoutPreference
+                .collectAsState()
 
             TransactionFormScreen(
                 uiState = uiState,
+                screenLayoutPreference = screenLayoutPreference,
                 onAmountChange = formViewModel::onAmountChange,
                 onTitleChange = formViewModel::onTitleChange,
                 onCategoryChange = formViewModel::onCategoryChange,
@@ -162,9 +166,13 @@ fun LedgerNavHost(
                 )
             )
             val uiState by formViewModel.uiState.collectAsState()
+            val screenLayoutPreference by screenLayoutPreferenceRepository
+                .screenLayoutPreference
+                .collectAsState()
 
             TransactionFormScreen(
                 uiState = uiState,
+                screenLayoutPreference = screenLayoutPreference,
                 onAmountChange = formViewModel::onAmountChange,
                 onTitleChange = formViewModel::onTitleChange,
                 onCategoryChange = formViewModel::onCategoryChange,
@@ -418,9 +426,13 @@ fun LedgerNavHost(
                 )
             )
             val uiState by formViewModel.uiState.collectAsState()
+            val screenLayoutPreference by screenLayoutPreferenceRepository
+                .screenLayoutPreference
+                .collectAsState()
 
             TransactionFormScreen(
                 uiState = uiState,
+                screenLayoutPreference = screenLayoutPreference,
                 onAmountChange = formViewModel::onAmountChange,
                 onTitleChange = formViewModel::onTitleChange,
                 onCategoryChange = formViewModel::onCategoryChange,
